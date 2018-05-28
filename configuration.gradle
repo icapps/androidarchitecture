@@ -1,0 +1,12 @@
+def buildConfig = [
+        buildToolsVersion: '27.0.0',
+        compileSdkVersion: 27,
+        targetSdkVersion : 27,
+        minSdkVersion    : 17,
+        versionCode      : 1,
+        versionName      : "1.0.0",
+]
+
+ext.config = [
+        "buildConfig": buildConfig
+]

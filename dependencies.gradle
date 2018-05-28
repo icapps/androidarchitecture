@@ -1,0 +1,56 @@
+def versions = [
+        buildtools       : '3.1.2',
+        kotlin           : '1.2.41',
+        detekt           : '1.0.0.RC6-4',
+        arch             : '1.1.1',
+        androidSupport   : '27.1.0',
+        junit            : '4.12',
+        androidTestRunner: '1.0.1',
+        espresso         : '3.0.1',
+        retrofit         : '2.4.0',
+        okhttp           : '3.10.0',
+        niddler          : '1.0.0-alpha10',
+        versionsPlugin   : '0.17.0',
+        leakcanary       : '1.5.4',
+]
+
+ext.versions = versions
+
+def gradlePlugins = [
+        buildTools: "com.android.tools.build:gradle:${versions.buildtools}",
+        kotlin    : "org.jetbrains.kotlin:kotlin-gradle-plugin:${versions.kotlin}",
+        versions  : "com.github.ben-manes:gradle-versions-plugin:${versions.versionsPlugin}",
+]
+
+def kotlin = [
+        kotlinStdLib: "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${versions.kotlin}"
+]
+
+def support = [
+        supportV4  : "com.android.support:support-fragment:${versions.androidSupport}",
+        annotations: "com.android.support:support-annotations:${versions.androidSupport}",
+]
+
+def libs = [
+        archExtensions: "android.arch.lifecycle:extensions:${versions.arch}",
+        retrofit      : "com.squareup.retrofit2:retrofit:${versions.retrofit}",
+        okhttp        : "com.squareup.okhttp3:okhttp:${versions.okhttp}",
+        databinding   : "com.android.databinding:library:${versions.buildtools}",
+]
+
+def niddler = [
+        niddler: "com.icapps.niddler:niddler:${versions.niddler}",
+]
+
+def leakCanary = [
+        leakCanary: "com.squareup.leakcanary:leakcanary-android:${versions.leakcanary}",
+]
+
+ext.deps = [
+        "gradlePlugins": gradlePlugins,
+        "kotlin"       : kotlin,
+        "support"      : support,
+        "libs"         : libs,
+        "niddler"      : niddler,
+        "leakCanary"   : leakCanary
+]
