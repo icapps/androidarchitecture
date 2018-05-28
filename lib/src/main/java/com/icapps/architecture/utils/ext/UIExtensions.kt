@@ -54,6 +54,11 @@ inline fun <T : ViewDataBinding> Int.inflate(fragment: Fragment, into: ViewGroup
 }
 
 @Suppress("NOTHING_TO_INLINE")
+inline fun <T : ViewDataBinding> Int.inflate(fragment: android.support.v4.app.Fragment, into: ViewGroup?, attach: Boolean = false): T {
+    return inflate(fragment.activity!!, into, attach)
+}
+
+@Suppress("NOTHING_TO_INLINE")
 inline fun Int.str(context: Context): String = context.getString(this)
 
 @Suppress("NOTHING_TO_INLINE", "SpreadOperator")
