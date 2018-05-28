@@ -12,6 +12,7 @@ def versions = [
         niddler          : '1.0.0-alpha10',
         versionsPlugin   : '0.17.0',
         leakcanary       : '1.5.4',
+        dagger           : '2.16',
 ]
 
 ext.versions = versions
@@ -36,6 +37,7 @@ def libs = [
         retrofit      : "com.squareup.retrofit2:retrofit:${versions.retrofit}",
         okhttp        : "com.squareup.okhttp3:okhttp:${versions.okhttp}",
         databinding   : "com.android.databinding:library:${versions.buildtools}",
+        dagger        : "com.google.dagger:dagger:${versions.dagger}",
 ]
 
 def niddler = [
