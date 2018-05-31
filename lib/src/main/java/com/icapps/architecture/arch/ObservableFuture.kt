@@ -26,21 +26,45 @@ import java.util.concurrent.TimeUnit
  * @author Nicola Verbeeck
  * @version 1
  */
-class OnCallerTag
+/**
+ * Tagging class used to indicate that the future should execute the callbacks on the thread that sets the result
+ */
+class OnCallerTag internal constructor()
 
+/** Instance if the [OnCallerTag] to be used with [ObservableFuture] */
 val onCaller = OnCallerTag()
 
+/**
+ * Future concept which provides convenient methods for listening for results and/or errors
+ */
 interface ObservableFuture<T> {
 
     companion object {
+        /** Dispatcher used to dispatch callbacks on the android main thread */
         val mainDispatcher = Handler(Looper.getMainLooper())
 
+        /**
+         * Create a simple [ObservableFuture] that simply returns the provided data
+         *
+         * @param data The data to be returned as success for this future
+         * @return A future that simply returns the provided data
+         */
         fun <T> withData(data: T): ObservableFuture<T> {
             return ConcreteMutableObservableFuture<T>().apply {
                 onResult(data)
             }
         }
 
+        /**
+         * Creates an [ObservableFuture] which combines the results of the two provided observables into a single unified result
+         * The result will be delivered when both the futures have been completed. If an error is returned by either of the
+         * futures, the combination is considered to be in error and the 'first' exception will be returned
+         *
+         * @param first The first observable to use
+         * @param second The second observable to use
+         * @return An observable which combines the results of the provided observables. You can use destructuring in the success callback
+         * for cleanliness
+         */
         fun <T, V> of(first: ObservableFuture<T>, second: ObservableFuture<V>): ObservableFuture<Pair<T, V>> {
             val merged = ConcreteMutableObservableFuture<Pair<T, V>>()
             val listVersion = DelegateMergedMutableObservableFuture(listOf(first, second))
@@ -53,6 +77,17 @@ interface ObservableFuture<T> {
             return merged
         }
 
+        /**
+         * Creates an [ObservableFuture] which combines the results of the three provided observables into a single unified result
+         * The result will be delivered when all the futures have been completed. If an error is returned by any of the
+         * futures, the combination is considered to be in error and the 'first' exception will be returned
+         *
+         * @param first The first observable to use
+         * @param second The second observable to use
+         * @param third The third observable to use
+         * @return An observable which combines the results of the provided observables. You can use destructuring in the success callback
+         * for cleanliness
+         */
         fun <A, B, C> of(first: ObservableFuture<A>, second: ObservableFuture<B>, third: ObservableFuture<C>): ObservableFuture<Triple<A, B, C>> {
             val merged = ConcreteMutableObservableFuture<Triple<A, B, C>>()
             val listVersion = DelegateMergedMutableObservableFuture(listOf(first, second, third))
@@ -65,32 +100,99 @@ interface ObservableFuture<T> {
             return merged
         }
 
+        /**
+         * Creates a grouped version using an arbitrary number of futures to combine. For the logic see the specialized versions taking
+         * two or three arguments
+         */
         fun of(list: List<ObservableFuture<*>>): ObservableFuture<List<*>> {
             return DelegateMergedMutableObservableFuture(list)
         }
 
     }
 
+    /**
+     * Register the listener to be called when the future completes with success. The thread on which this callback is executed is
+     * based on the manner of observing. This is an infix function for clean usage. This method should only be called once and this should
+     * be enforced by implementations
+     *
+     * @param successListener The listener to be invoked in case of success
+     * @return The future itself, allows chaining.
+     */
     infix fun onSuccess(successListener: (T) -> Unit): ObservableFuture<T>
 
+    /**
+     * Register the listener to be called when the future completes with a failure. The thread on which this callback is executed is
+     * based on the manner of observing. This is an infix function for clean usage. This method should only be called once and this should
+     * be enforced by implementations
+     *
+     * @param failureListener The listener to be invoked in case of failure
+     * @return The future itself, allows chaining.
+     */
     infix fun onFailure(failureListener: (Throwable) -> Unit): ObservableFuture<T>
 
     /**
-     * Execute and wait for the result
+     * Execute and wait for the result. If the future would result in an error, this error will be thrown. NEVER execute this on the main thread,
+     * implementations should enforce this
+     *
+     * Note that this method is generally dangerous and should be used with great care. Read the warning below carefully!
+     *
+     * # Warning
+     * Except for [com.icapps.architecture.utils.retrofit.RetrofitObservableFuture] this method will use a latch to wait for the results
+     * that are delivered using direct observe. If the underlying future cannot be executed for whatever reason (eg thread could not be started, ...),
+     * this method will block. Also, since this is being executed in the context of the future in the first place, special care should be taken
+     * with regards to reentrant locks (eg: synchronized(...), ...) as the thread calling [execute] will not be the same thread that is doing
+     * the actual executing
      *
      * @param timeout Parameter which gives a suggestion on how long we should wait. For network observables this is ignored.
      * Pass a negative value to wait forever (not recommended)
+     * @return The result of the future
      */
     fun execute(timeout: Long): T
 
+    /**
+     * Cancels the future. This means the callbacks will never be executed after this method has been called. Some implementations
+     * may cancel the actual execution of the background task but this is not a requirement. Cancelling a future should also clear
+     * the callback references to prevent memory leaks.
+     *
+     * # Warning
+     * If the future is being observed on a different thread than the thread calling this method, it cannot be guaranteed that the callbacks
+     * will not be executed as they could be executed simultaneously with the cancel
+     */
     fun cancel()
 
+    /**
+     * Observes the future on the android main thread and cancel the future when the lifecycle enters the [Lifecycle.Event.ON_STOP] state.
+     * If the results have already been set and/or the results are set from the main thread, the callbacks could be executed before this method
+     * returns
+     *
+     * @param lifecycle The lifecycle to use to cancel the future at the appropriate time
+     */
     infix fun observe(lifecycle: Lifecycle)
 
+    /**
+     * Observes the future on the thread that sets the results
+     *
+     * @param onCaller Tagging object used to indicate observing on caller
+     */
     infix fun observe(onCaller: OnCallerTag)
 
+    /**
+     * Peeks the future to receive its result in a success scenario. The listener is invoked on an unspecified thread but is guaranteed to be
+     * called BEFORE the regular success listener (set using [onSuccess])
+     *
+     * @param listener  Listener to be invoked when the future completes with success.
+     * @return The future itself, allows chaining.
+     */
     infix fun peek(listener: (T) -> Unit): ObservableFuture<T>
 
+    /**
+     * Chains this future together with the provided future. On success of this future, pass the result to the provided callback to create
+     * the second future. The result of the created future can be observed using the returned future. If this future retuns an error,
+     * the error is propagated to the returned future
+     *
+     * @param chain Creator function taking the result of the first future and creating a new one that can be observed using the return value
+     * @return A new future which can be used to observe the result of the future created by [chain]
+     */
     infix fun <V> andThen(chain: (T) -> ObservableFuture<V>): ObservableFuture<V> {
         val merged = ConcreteMutableObservableFuture<V>()
         onSuccess { firstResult ->
@@ -100,6 +202,12 @@ interface ObservableFuture<T> {
         return merged
     }
 
+    /**
+     * Same as [andThen] but in this case the returned future also includes the results of this future as well
+     *
+     * @param chain Creator function taking the result of the first future and creating a new one that can be observed using the return value
+     * @return A new future which can be used to observe the result of the future created by [chain]
+     */
     infix fun <V> andThenAlso(chain: (T) -> ObservableFuture<V>): ObservableFuture<Pair<T, V>> {
         val merged = ConcreteMutableObservableFuture<Pair<T, V>>()
         onSuccess { firstResult ->
@@ -113,14 +221,28 @@ interface ObservableFuture<T> {
 
 }
 
+/**
+ * Interface for a future which can receive data or errors
+ */
 interface MutableObservableFuture<T> : ObservableFuture<T> {
 
+    /**
+     * Sets the result of the future to the provided value
+     * @param value The 'success' result value
+     */
     fun onResult(value: T)
 
+    /**
+     * Sets the result of the future to be the provided error
+     * @param error The 'failure' result value
+     */
     fun onResult(error: Throwable)
 
 }
 
+/**
+ * Implementation of [MutableObservableFuture]
+ */
 open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, LifecycleObserver {
 
     protected val lock = Any()
@@ -224,6 +346,9 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
         }
     }
 
+    /**
+     * Check if we have to dispatch the results of the future
+     */
     protected open fun checkDispatchState() {
         if (cancelled || !observing)
             return
@@ -245,10 +370,13 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
         }
     }
 
+    /**
+     * Dispatch the results to the listener, delegating to the correct thread if required
+     */
     protected fun doDispatch(data: T) {
         synchronized(lock) {
             successListener?.let { listener ->
-                if (!dispatchToMain || (Looper.myLooper() == Looper.getMainLooper()))
+                if (!dispatchToMain || (Looper.myLooper() === Looper.getMainLooper()))
                     listener(data)
                 else
                     ObservableFuture.mainDispatcher.post {
@@ -261,6 +389,9 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
         }
     }
 
+    /**
+     * Dispatch the results to the listener, delegating to the correct thread if required
+     */
     protected fun doDispatch(failure: Throwable) {
         synchronized(lock) {
             failureListener?.let { listener ->
@@ -321,8 +452,16 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     }
 }
 
+/**
+ * Class used to track the results in [DelegateMergedMutableObservableFuture]
+ */
 private data class MutableEntry(var data: Any? = null, var set: Boolean = false)
 
+/**
+ * Specialized class which takes a list of futures to observe and combines the results into a single result callback
+ *
+ * @property delegates The delegates to subscribe to
+ */
 private class DelegateMergedMutableObservableFuture(private val delegates: Collection<ObservableFuture<*>>) : ConcreteMutableObservableFuture<List<*>>() {
 
     private val results = Array(delegates.size) { MutableEntry() }
@@ -371,6 +510,9 @@ private class DelegateMergedMutableObservableFuture(private val delegates: Colle
         }
     }
 
+    /**
+     * Special override which checks if all the results have been set
+     */
     override fun checkDispatchState() {
         if (cancelled || !observing)
             return
@@ -382,7 +524,6 @@ private class DelegateMergedMutableObservableFuture(private val delegates: Colle
             observing = false
             return
         }
-
 
         val numResults = results.count(MutableEntry::set)
         if (numResults == results.size) {
@@ -396,7 +537,13 @@ private class DelegateMergedMutableObservableFuture(private val delegates: Colle
     }
 }
 
-@Suppress("UNCHECKED_CAST")
-fun <T> Any.asObservable(): ObservableFuture<T> {
-    return ObservableFuture.withData(this) as ObservableFuture<T>
+/**
+ * Helper extension to turn any value into an [ObservableFuture] which just returns the data. Wraps [ObservableFuture.withData]
+ *
+ * @receiver Any value that needs to be wrapped
+ * @return An [ObservableFuture] which just returns the data
+ */
+@Suppress("UNCHECKED_CAST", "NOTHING_TO_INLINE")
+inline fun <T> T.asObservable(): ObservableFuture<T> {
+    return ObservableFuture.withData(this)
 }

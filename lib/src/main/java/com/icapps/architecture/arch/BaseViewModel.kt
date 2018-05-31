@@ -17,20 +17,33 @@ import android.os.Bundle
 import android.support.annotation.CallSuper
 
 /**
+ * @see ViewModel that is 'aware' of its restoration state. Contains methods for saving and restoring state
+ * across activity destroys and restores
+ *
  * @author Nicola Verbeeck
  * @version 1
  */
 abstract class BaseViewModel : ViewModel() {
 
+    /**
+     * Indicates if this [BaseViewModel] has been restored from saved state or not
+     */
     protected var isCleanInstance: Boolean = true
         private set
 
-    @CallSuper
+    /**
+     * Saves the state of the [ViewModel] to the provided bundle
+     */
     open fun saveInstanceState(outState: Bundle) {
-        isCleanInstance = false
     }
 
+    /**
+     * Restores the state of the [ViewModel] using the provided bundle.
+     * When restoring from saved state, [isCleanInstance] is assumed to be false
+     */
+    @CallSuper
     open fun restoreInstanceState(savedInstanceState: Bundle) {
+        isCleanInstance = false
         // Implement in subclass
     }
 
