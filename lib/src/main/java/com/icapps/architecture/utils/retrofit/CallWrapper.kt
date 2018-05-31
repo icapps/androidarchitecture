@@ -20,19 +20,34 @@ import java.io.IOException
 import java.lang.reflect.Type
 
 /**
- * @author Nicola Verbeeck
- * @version 1
+ * Helper that wraps a call to an [ObservableFuture].
+ * Reified inline to capture as much information about the type as possible (such as nullability, ...)
+ *
+ * @receiver Call to wrap
+ * @param headerInspector Optional transformation function which receives the result and the headers. See [RetrofitObservableFuture]
+ * @return A future which observes the call
  */
 inline fun <reified T> Call<T>.wrapToFuture(noinline headerInspector: ((Headers, T) -> T)? = null): ObservableFuture<T> {
     return wrapToFuture(T::class.java, nullableType = (null is T), headerInspector = headerInspector)
 }
 
+/**
+ * Helper that wraps a call to an [ObservableFuture].
+ *
+ * @receiver Call to wrap
+ * @param type The type of the data we are wrapping. Should be equivalent to T
+ * @param nullableType Boolean indicating if T is nullable
+ * @param headerInspector Optional transformation function which receives the result and the headers. See [RetrofitObservableFuture]
+ * @return A future which observes the call
+ */
 @Suppress("UNCHECKED_CAST")
 fun <T> Call<T>.wrapToFuture(type: Type, nullableType: Boolean, headerInspector: ((Headers, T) -> T)? = null): ObservableFuture<T> {
     return RetrofitObservableFuture(this, type, nullableType, headerInspector)
 }
 
 /**
+ * Wrapper for an okhttp network error (in application-land)
+ *
  * @author Nicola Verbeeck
  * @version 1
  */
@@ -54,6 +69,9 @@ class ServiceException : IOException {
         this.errorBody = null
     }
 
+    /**
+     * Constructs a message containing details about the failed call such as url, response code, cache headers
+     */
     override val message: String?
         get() = buildString {
             append(super.message)

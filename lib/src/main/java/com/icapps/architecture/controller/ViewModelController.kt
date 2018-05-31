@@ -23,6 +23,8 @@ import javax.inject.Inject
 import kotlin.reflect.KClass
 
 /**
+ * Helper class which creates or retrieves [BaseViewModel]s based on the provided class
+ *
  * @author Nicola Verbeeck
  * @version 1
  */
@@ -30,14 +32,31 @@ class ViewModelProvider @Inject constructor(val factory: ViewModelProvider.Facto
 
     private val viewModels = IdentityHashMap<KClass<*>, BaseViewModel>()
 
+    /**
+     * Gets or creates the [BaseViewModel] denoted by the type parameter and optionally restores the state from the provided bundle
+     *
+     * @param activity The controlling activity
+     * @param savedInstanceState Optional saved instance state to restore the [BaseViewModel]
+     * @return Instance of the [BaseViewModel] tied to the activity
+     */
     inline fun <reified T : BaseViewModel> getOrCreateViewModel(activity: FragmentActivity, savedInstanceState: Bundle? = null): T {
         return registerViewModel(ViewModelProviders.of(activity, factory)[T::class.java], T::class, savedInstanceState)
     }
 
+    /**
+     * Gets or creates the [BaseViewModel] denoted by the type parameter and optionally restores the state from the provided bundle
+     *
+     * @param fragment The controlling fragment
+     * @param savedInstanceState Optional saved instance state to restore the [BaseViewModel]
+     * @return Instance of the [BaseViewModel] tied to the fragment
+     */
     inline fun <reified T : BaseViewModel> getOrCreateViewModel(fragment: Fragment, savedInstanceState: Bundle? = null): T {
         return registerViewModel(ViewModelProviders.of(fragment, factory)[T::class.java], T::class, savedInstanceState)
     }
 
+    /**
+     * Registers a ViewModel with this controller and dispatches saved state accordingly
+     */
     fun <T : BaseViewModel> registerViewModel(viewModel: T, tClass: KClass<T>, savedInstanceState: Bundle?): T {
         savedInstanceState?.let {
             viewModel.restoreInstanceState(it)
@@ -47,10 +66,18 @@ class ViewModelProvider @Inject constructor(val factory: ViewModelProvider.Facto
         return viewModel
     }
 
+    /**
+     * Call this when the view models of the controller should save their state
+     *
+     * @param outState The bundle to save the models to
+     */
     fun onSaveInstanceState(outState: Bundle) {
         viewModels.forEach { it.value.saveInstanceState(outState) }
     }
 
+    /**
+     * Call this when the containing controller is being destroyed
+     */
     fun onDestroy() {
         viewModels.clear()
     }

@@ -18,8 +18,7 @@ import com.icapps.architecture.arch.ObservableFuture
 import java.util.concurrent.Executor
 
 /**
- * @author Nicola Verbeeck
- * @version 1
+ * Asserts that the current thread is not the android main thread. If so, throw an [IllegalStateException]
  */
 @Suppress("NOTHING_TO_INLINE")
 inline fun assertNotMain() {
@@ -29,6 +28,12 @@ inline fun assertNotMain() {
         throw IllegalStateException("Should not be called from the main thread")
 }
 
+/**
+ * Executes the given function on a new background thread
+ *
+ * @param lambda The function to execute, the resulting value of the function will be reportd to the returned [ObservableFuture]
+ * @return An [ObservableFuture] that can be used to observe the result of the function
+ */
 inline fun <T> onBackground(crossinline lambda: () -> T): ObservableFuture<T> {
     val ret = ConcreteMutableObservableFuture<T>()
     Thread {
@@ -41,6 +46,17 @@ inline fun <T> onBackground(crossinline lambda: () -> T): ObservableFuture<T> {
     return ret
 }
 
+/**
+ * Executes the given function on a background thread provided by the given executor.
+ *
+ * # Warning
+ * See [com.icapps.architecture.utils.async.ScalingThreadPoolExecutor] for a correct example of
+ * an unbounded [java.util.concurrent.ThreadPoolExecutor.ThreadPoolExecutor]
+ *
+ * @param executor The executor to execute the function on. See [com.icapps.architecture.utils.async.ScalingThreadPoolExecutor]
+ * @param lambda The function to execute, the resulting value of the function will be reportd to the returned [ObservableFuture]
+ * @return An [ObservableFuture] that can be used to observe the result of the function
+ */
 inline fun <T> onBackground(executor: Executor, crossinline lambda: () -> T): ObservableFuture<T> {
     val ret = ConcreteMutableObservableFuture<T>()
     executor.execute {

@@ -86,5 +86,10 @@ inline fun Int.intRes(context: Context): Int = context.resources.getInteger(this
 @Suppress("NOTHING_TO_INLINE")
 inline fun Int.sp(context: Context): Float = context.resources.getDimension(this)
 
+/**
+ * @receiver The integer to scale using the android screen density
+ * @param context The context to extract the metrics from
+ * @return The integer scaled to the density
+ */
 @Suppress("NOTHING_TO_INLINE")
 inline fun Int.toDpi(context: Context): Float = this * context.resources.displayMetrics.density

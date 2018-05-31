@@ -16,11 +16,18 @@ import android.app.Application
 import com.squareup.leakcanary.LeakCanary
 
 /**
+ * Helper to configure LeakCanary
+ *
  * @author Nicola Verbeeck
  * @version 1
  */
 object LeakCanaryHelper {
 
+    /**
+     * Initializes LeakCanary for the application. Skips initialization if this process is the Leak analyzer process
+     *
+     * @param application The application to use to initialize LeakCanary with
+     */
     fun configure(application: Application) {
         if (LeakCanary.isInAnalyzerProcess(application))
             return

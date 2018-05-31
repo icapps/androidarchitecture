@@ -18,10 +18,13 @@ import retrofit2.Retrofit
 import java.lang.reflect.Type
 
 /**
+ * Retrofit factory that handles kotlin's [Unit] type
+ *
  * @author Nicola Verbeeck
  * @version 1
  */
 object UnitConverterFactory : Converter.Factory() {
+
     override fun responseBodyConverter(type: Type, annotations: Array<out Annotation>,
                                        retrofit: Retrofit): Converter<ResponseBody, *>? {
         return if (type == Unit::class.java) UnitConverter else null

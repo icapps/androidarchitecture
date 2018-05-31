@@ -18,6 +18,8 @@ import com.icapps.niddler.interceptor.okhttp.NiddlerOkHttpInterceptor
 import okhttp3.OkHttpClient
 
 /**
+ * Helper to configure niddler with sensible default values
+ *
  * @author Nicola Verbeeck
  * @version 1
  */
@@ -25,12 +27,19 @@ object NiddlerHelper {
 
     private const val DEFAULT_CACHE_SIZE = 10485760L
 
+    /**
+     * Configure niddler on the given okhttp client
+     *
+     * @param application The application to initialize niddler with
+     * @param okHttpBuilder The okhttp client to attach the listener to
+     */
     fun configure(application: Application, okHttpBuilder: OkHttpClient.Builder) {
         val niddler = AndroidNiddler.Builder()
             .setNiddlerInformation(AndroidNiddler.fromApplication(application))
             .setPort(0)
             .setCacheSize(DEFAULT_CACHE_SIZE)
             .build()
+        niddler.attachToApplication(application)
         okHttpBuilder.addInterceptor(NiddlerOkHttpInterceptor(niddler))
     }
 

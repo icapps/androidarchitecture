@@ -22,8 +22,16 @@ import java.util.concurrent.atomic.AtomicInteger
 
 
 /**
+ * Thread pool executor which is unbound in the number of tasks it can execute but does allow starting new background threads as required
+ *
  * @author Nicola Verbeeck
  * @version 1
+ * @param coreSize The minimum number of threads to keep alive
+ * @param maxSize The maximum number of threads to use for job execution
+ * @param keepAliveTime The time to keep a non-core thread alive when there is no work
+ * @param keepAliveUnit The unit of the keepAliveTime parameter
+ * @param queue The queue to use to keep jobs in
+ * @param threadFactory The thread factory to use for creating threads
  */
 class ScalingThreadPoolExecutor(coreSize: Int, maxSize: Int, keepAliveTime: Long, keepAliveUnit: TimeUnit, queue: ScalingBlockingQueue = ScalingBlockingQueue(),
                                 threadFactory: ThreadFactory = Executors.defaultThreadFactory())
@@ -50,6 +58,9 @@ class ScalingThreadPoolExecutor(coreSize: Int, maxSize: Int, keepAliveTime: Long
 
 }
 
+/**
+ * Blocking queue that integrates with an executor to check if new tasks 'can be added'
+ */
 class ScalingBlockingQueue : LinkedBlockingQueue<Runnable>() {
 
     lateinit var executor: ThreadPoolExecutor
