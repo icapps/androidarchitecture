@@ -18,7 +18,7 @@ import android.arch.lifecycle.OnLifecycleEvent
 import android.os.Handler
 import android.os.Looper
 import android.support.annotation.WorkerThread
-import com.icapps.architecture.utils.assertNotMain
+import com.icapps.architecture.utils.async.assertNotMain
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
