@@ -20,6 +20,7 @@ import android.os.Looper
 import android.support.annotation.WorkerThread
 import com.icapps.architecture.utils.assertNotMain
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * @author Nicola Verbeeck
@@ -68,36 +69,19 @@ interface ObservableFuture<T> {
             return DelegateMergedMutableObservableFuture(list)
         }
 
-        @WorkerThread
-        fun <T> execute(observableFuture: ObservableFuture<T>): T {
-            assertNotMain()
-            val latch = CountDownLatch(1)
-            var ex: Throwable? = null
-            var res: T? = null
-            var dataSet = false
-            observableFuture onSuccess {
-                res = it
-                dataSet = true
-                latch.countDown()
-            } onFailure {
-                ex = it
-                latch.countDown()
-            } observe onCaller
-            latch.await()
-            ex?.let { throw it }
-
-            @Suppress("UNCHECKED_CAST")
-            if (dataSet)
-                return res as T
-
-            throw IllegalStateException("Future finished without result or exception")
-        }
-
     }
 
     infix fun onSuccess(successListener: (T) -> Unit): ObservableFuture<T>
 
     infix fun onFailure(failureListener: (Throwable) -> Unit): ObservableFuture<T>
+
+    /**
+     * Execute and wait for the result
+     *
+     * @param timeout Parameter which gives a suggestion on how long we should wait. For network observables this is ignored.
+     * Pass a negative value to wait forever (not recommended)
+     */
+    fun execute(timeout: Long): T
 
     fun cancel()
 
@@ -154,16 +138,20 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     private var lifecycle: Lifecycle? = null
 
     override fun onSuccess(successListener: (T) -> Unit): ObservableFuture<T> {
-        if (this.successListener != null)
-            throw IllegalStateException("Listener already set")
-        this.successListener = successListener
+        synchronized(lock) {
+            if (this.successListener != null)
+                throw IllegalStateException("Listener already set")
+            this.successListener = successListener
+        }
         return this
     }
 
     override fun onFailure(failureListener: (Throwable) -> Unit): ObservableFuture<T> {
-        if (this.failureListener != null)
-            throw IllegalStateException("Listener already set")
-        this.failureListener = failureListener
+        synchronized(lock) {
+            if (this.failureListener != null)
+                throw IllegalStateException("Listener already set")
+            this.failureListener = failureListener
+        }
         return this
     }
 
@@ -300,6 +288,36 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
             }
         }
         return this
+    }
+
+    @WorkerThread
+    override fun execute(timeout: Long): T {
+        assertNotMain()
+        val latch = CountDownLatch(1)
+        var ex: Throwable? = null
+        var res: T? = null
+        var dataSet = false
+        onSuccess {
+            res = it
+            dataSet = true
+            latch.countDown()
+        } onFailure {
+            ex = it
+            latch.countDown()
+        } observe onCaller
+
+        if (timeout >= 0)
+            latch.await(timeout, TimeUnit.MILLISECONDS)
+        else
+            latch.await()
+
+        ex?.let { throw it }
+
+        @Suppress("UNCHECKED_CAST")
+        if (dataSet)
+            return res as T
+
+        throw IllegalStateException("Future finished without result or exception")
     }
 }
 

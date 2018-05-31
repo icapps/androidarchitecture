@@ -13,6 +13,7 @@ def versions = [
         versionsPlugin   : '0.17.0',
         leakcanary       : '1.5.4',
         dagger           : '2.16',
+        dokka            : '0.9.17',
 ]
 
 ext.versions = versions
@@ -21,6 +22,7 @@ def gradlePlugins = [
         buildTools: "com.android.tools.build:gradle:${versions.buildtools}",
         kotlin    : "org.jetbrains.kotlin:kotlin-gradle-plugin:${versions.kotlin}",
         versions  : "com.github.ben-manes:gradle-versions-plugin:${versions.versionsPlugin}",
+        dokka     : "org.jetbrains.dokka:dokka-gradle-plugin:${versions.dokka}",
 ]
 
 def kotlin = [

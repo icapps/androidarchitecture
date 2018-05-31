@@ -10,9 +10,9 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath deps.gradlePlugins.buildTools
-        classpath deps.gradlePlugins.kotlin
-        classpath deps.gradlePlugins.versions
+        deps.gradlePlugins.each {
+            classpath it.value
+        }
     }
 }
 
