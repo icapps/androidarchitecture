@@ -28,7 +28,7 @@ import kotlin.reflect.KClass
  * @author Nicola Verbeeck
  * @version 1
  */
-class ViewModelProvider @Inject constructor(val factory: ViewModelProvider.Factory) {
+class ViewModelLifecycleController @Inject constructor(val factory: ViewModelProvider.Factory) {
 
     private val viewModels = IdentityHashMap<KClass<*>, BaseViewModel>()
 
