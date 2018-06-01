@@ -56,27 +56,29 @@ class RetrofitObservableFuture<T>(private val call: Call<T>,
     /**
      * Starts the call on a background thread and delivers the results to the main thread
      */
-    override fun observe(lifecycle: Lifecycle) {
+    override fun observe(lifecycle: Lifecycle): RetrofitObservableFuture<T> {
         synchronized(lock) {
             if (cancelled)
-                return
+                return this
 
             super.observe(lifecycle)
             enqueue()
         }
+        return this
     }
 
     /**
      * Starts the call on a background thread and delivers the results to the calling thread
      */
-    override fun observe(onCaller: OnCallerTag) {
+    override fun observe(onCaller: OnCallerTag): RetrofitObservableFuture<T> {
         synchronized(lock) {
             if (cancelled)
-                return
+                return this
 
             super.observe(onCaller)
             enqueue()
         }
+        return this
     }
 
     /**
