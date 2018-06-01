@@ -45,3 +45,18 @@ Example 2. In this case the callbacks will be executed on the tread that is post
         ...
     } observe onCaller
 ```
+
+Futures can also be combined to run together or chained to pass the result from one future to another.
+
+**Warning**
+
+ObservableFuture has a method that blocks the calling thread until the result of the future is ready to be delivered (execute).
+This method is generally dangerous as it has subtle pitfalls.
+
+```
+Except for RetrofitObservableFuture this method will use a latch to wait for the results
+that are delivered using direct observe. If the underlying future cannot be executed for whatever reason (eg thread could not be started, ...),
+this method will block. Also, since this is being executed in the context of the future in the first place, special care should be taken
+with regards to reentrant locks (eg: synchronized(...), ...) as the thread calling [execute] will not be the same thread that is doing
+the actual executing
+```
