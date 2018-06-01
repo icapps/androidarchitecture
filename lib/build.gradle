@@ -27,6 +27,9 @@ android {
             consumerProguardFiles 'proguard-rules.pro'
         }
     }
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
 }
 
 sourceCompatibility = JavaVersion.VERSION_1_7
@@ -46,6 +49,8 @@ dependencies {
     provided 'com.android.support:appcompat-v7:27.1.1'
 
     implementation deps.libs.archExtensions
+
+    testImplementation deps.testing.junit
 }
 
 task sourceJar(type: Jar) {
