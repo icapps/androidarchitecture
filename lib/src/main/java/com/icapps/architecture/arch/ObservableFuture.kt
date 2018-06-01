@@ -296,7 +296,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
         }
     }
 
-    override fun observe(lifecycle: Lifecycle): ObservableFuture<T> {
+    override fun observe(lifecycle: Lifecycle): ConcreteMutableObservableFuture<T> {
         lifecycle.addObserver(this)
         this.lifecycle = lifecycle
         synchronized(lock) {
@@ -313,7 +313,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
         return this
     }
 
-    override fun observe(onCaller: OnCallerTag): ObservableFuture<T> {
+    override fun observe(onCaller: OnCallerTag): ConcreteMutableObservableFuture<T> {
         synchronized(lock) {
             if (cancelled)
                 return this
