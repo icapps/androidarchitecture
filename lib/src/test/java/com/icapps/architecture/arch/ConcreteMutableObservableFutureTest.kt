@@ -125,6 +125,5 @@ class ConcreteMutableObservableFutureTest {
         assertEquals("First", code)
         return ObservableFuture.withData("Second")
     }
-
-
+    
 }
