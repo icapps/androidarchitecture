@@ -166,15 +166,17 @@ interface ObservableFuture<T> {
      * returns
      *
      * @param lifecycle The lifecycle to use to cancel the future at the appropriate time
+     * @return The future itself
      */
-    infix fun observe(lifecycle: Lifecycle)
+    infix fun observe(lifecycle: Lifecycle): ObservableFuture<T>
 
     /**
      * Observes the future on the thread that sets the results
      *
      * @param onCaller Tagging object used to indicate observing on caller
+     * @return The future itself
      */
-    infix fun observe(onCaller: OnCallerTag)
+    infix fun observe(onCaller: OnCallerTag): ObservableFuture<T>
 
     /**
      * Peeks the future to receive its result in a success scenario. The listener is invoked on an unspecified thread but is guaranteed to be
@@ -294,12 +296,12 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
         }
     }
 
-    override fun observe(lifecycle: Lifecycle) {
+    override fun observe(lifecycle: Lifecycle): ObservableFuture<T> {
         lifecycle.addObserver(this)
         this.lifecycle = lifecycle
         synchronized(lock) {
             if (cancelled)
-                return
+                return this
 
             if (observing)
                 throw IllegalStateException("Already observing")
@@ -308,12 +310,13 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
             observing = true
             checkDispatchState()
         }
+        return this
     }
 
-    override fun observe(onCaller: OnCallerTag) {
+    override fun observe(onCaller: OnCallerTag): ObservableFuture<T> {
         synchronized(lock) {
             if (cancelled)
-                return
+                return this
 
             if (observing)
                 throw IllegalStateException("Already observing")
@@ -322,6 +325,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
             observing = true
             checkDispatchState()
         }
+        return this
     }
 
     override fun onResult(value: T) {
