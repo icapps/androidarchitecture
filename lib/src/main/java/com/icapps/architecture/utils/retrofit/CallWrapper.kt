@@ -42,7 +42,22 @@ inline fun <reified T> Call<T>.wrapToFuture(noinline headerInspector: ((Headers,
  */
 @Suppress("UNCHECKED_CAST")
 fun <T> Call<T>.wrapToFuture(type: Type, nullableType: Boolean, headerInspector: ((Headers, T) -> T)? = null): ObservableFuture<T> {
-    return RetrofitObservableFuture(this, type, nullableType, headerInspector)
+    return RetrofitObservableFuture(this, type, nullableType, headerInspector, null)
+}
+
+/**
+ * Helper that wraps a call to an [ObservableFuture].
+ *
+ * @receiver Call to wrap
+ * @param type The type of the data we are wrapping. Should be equivalent to T
+ * @param nullableType Boolean indicating if T is nullable
+ * @param transform Transformation function which transforms the result
+ * @param headerInspector Optional transformation function which receives the result and the headers. See [RetrofitObservableFuture]
+ * @return A future which observes the call
+ */
+@Suppress("UNCHECKED_CAST")
+fun <T, O> Call<T>.wrapToFuture(type: Type, nullableType: Boolean, transform: (T) -> O, headerInspector: ((Headers, T) -> T)? = null): ObservableFuture<O> {
+    return RetrofitObservableFuture(this, type, nullableType, headerInspector, transform)
 }
 
 /**

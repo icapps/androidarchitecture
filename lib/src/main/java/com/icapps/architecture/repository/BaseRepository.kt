@@ -12,9 +12,7 @@
 
 package com.icapps.architecture.repository
 
-import com.icapps.architecture.arch.ConcreteMutableObservableFuture
 import com.icapps.architecture.arch.ObservableFuture
-import com.icapps.architecture.arch.onCaller
 import com.icapps.architecture.utils.retrofit.wrapToFuture
 import retrofit2.Call
 
@@ -39,10 +37,6 @@ abstract class BaseRepository {
     /**
      * Overloaded version of [makeCall] which also takes a transformation function
      *
-     * # Warning
-     * By passing a transformation function, the resulting Future is no longer a [com.icapps.architecture.utils.retrofit.RetrofitObservableFuture] with all the
-     * pitfalls described in [ObservableFuture]
-     *
      * @param call The call to execute
      * @param transform Transformation function that is invoked when the call has completed with success
      * @return A future that can be used to observe the result of the call
@@ -53,10 +47,6 @@ abstract class BaseRepository {
 
     /**
      * Overloaded version of [makeCall] which also takes the nullable status of T
-     *
-     * # Warning
-     * By passing a transformation function, the resulting Future is no longer a [com.icapps.architecture.utils.retrofit.RetrofitObservableFuture] with all the
-     * pitfalls described in [ObservableFuture]
      *
      * @param call The call to execute
      * @param nullableType Boolean indicating if T is nullable
@@ -70,10 +60,6 @@ abstract class BaseRepository {
     /**
      * Executes the provided call, optionally transforms the result
      *
-     * # Warning
-     * By passing a transformation function, the resulting Future is no longer a [com.icapps.architecture.utils.retrofit.RetrofitObservableFuture] with all the
-     * pitfalls described in [ObservableFuture]
-     *
      * @param type The type of the result of the call, maps to <T>
      * @param call The call to execute
      * @param nullableType Boolean indicating if T is nullable
@@ -85,16 +71,7 @@ abstract class BaseRepository {
                                   call: Call<T>,
                                   nullableType: Boolean,
                                   transform: ((T) -> O)?): ObservableFuture<O> {
-        if (transform == null)
-            return call.wrapToFuture(type, nullableType) as ObservableFuture<O>
-
-        val wrapped = ConcreteMutableObservableFuture<O>()
-        val direct = call.wrapToFuture(type, nullableType)
-        direct.onSuccess { wrapped.onResult(transform(it)) }
-        direct.onFailure(wrapped::onResult)
-        direct observe onCaller
-
-        return wrapped
+        return call.wrapToFuture(type, nullableType, transform)
     }
 
     /**

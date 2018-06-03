@@ -32,13 +32,15 @@ import java.lang.reflect.Type
  * @param type  The type of the data returned from the call (should match T)
  * @param nullableType  Boolean indicating if the type of T is actually nullable
  * @param headerInspector Optional function to be invoked when the call has executed with success, gets the headers of the response
+ * @param transform Optional transformation function which takes the body (after being transformed by the optional headerInspector) and is allowed to transform it
  * and the response data and should return the response data optionally changed. The result of this function, if set, is the data that is
  * returned in the [com.icapps.architecture.arch.ObservableFuture]
  */
-class RetrofitObservableFuture<T>(private val call: Call<T>,
-                                  type: Type,
-                                  private val nullableType: Boolean,
-                                  private val headerInspector: ((Headers, T) -> T)?) : ConcreteMutableObservableFuture<T>() {
+class RetrofitObservableFuture<T, O>(private val call: Call<T>,
+                                     type: Type,
+                                     private val nullableType: Boolean,
+                                     private val headerInspector: ((Headers, T) -> T)?,
+                                     private val transform: ((T) -> O)?) : ConcreteMutableObservableFuture<O>() {
 
     /** Boolean indicating if the result is actually [Unit] and no body is expected */
     private val isEmptyBody = type == Unit::class.java
@@ -56,7 +58,7 @@ class RetrofitObservableFuture<T>(private val call: Call<T>,
     /**
      * Starts the call on a background thread and delivers the results to the main thread
      */
-    override fun observe(lifecycle: Lifecycle): RetrofitObservableFuture<T> {
+    override fun observe(lifecycle: Lifecycle): RetrofitObservableFuture<T, O> {
         synchronized(lock) {
             if (cancelled)
                 return this
@@ -70,7 +72,7 @@ class RetrofitObservableFuture<T>(private val call: Call<T>,
     /**
      * Starts the call on a background thread and delivers the results to the calling thread
      */
-    override fun observe(onCaller: OnCallerTag): RetrofitObservableFuture<T> {
+    override fun observe(onCaller: OnCallerTag): RetrofitObservableFuture<T, O> {
         synchronized(lock) {
             if (cancelled)
                 return this
@@ -86,7 +88,7 @@ class RetrofitObservableFuture<T>(private val call: Call<T>,
      *
      * @param timeout Ignored
      */
-    override fun execute(timeout: Long): T {
+    override fun execute(timeout: Long): O {
         //Timeout is ignored here, timeout should be set on HTTP client and cannot be changed per-request
         return handleResponse(call.execute())
     }
@@ -114,31 +116,39 @@ class RetrofitObservableFuture<T>(private val call: Call<T>,
      * Handle the raw retrofit response
      */
     @Suppress("UNCHECKED_CAST", "UNNECESSARY_NOT_NULL_ASSERTION")
-    private fun handleResponse(response: Response<T>): T {
+    private fun handleResponse(response: Response<T>): O {
         if (response.isSuccessful) {
             if (isEmptyBody) {
-                return Unit as T
+                return doTransform(Unit as T)
             } else if (isResponseBody) {
-                return if (headerInspector != null)
-                    headerInspector!!(response.headers(), response.body() as T)
-                else
-                    response.body() as T
+                return doTransform(if (headerInspector != null)
+                                       headerInspector!!(response.headers(), response.body() as T)
+                                   else
+                                       response.body() as T)
             } else {
                 val body = response.body()
                 if (body == null && !nullableType) {
                     val errorBody = response.errorBody()?.string()
                     throw ServiceException("Empty response where a body was expected", errorBody, response.raw(), call.request())
                 } else {
-                    return if (headerInspector != null)
-                        headerInspector!!(response.headers(), body as T)
-                    else
-                        body as T
+                    return doTransform(if (headerInspector != null)
+                                           headerInspector!!(response.headers(), body as T)
+                                       else
+                                           body as T)
                 }
             }
         } else {
             val errorBody = response.errorBody()?.string()
             throw ServiceException(response.message(), errorBody, response.raw(), call.request())
         }
+    }
+
+    private fun doTransform(result: T): O {
+        @Suppress("UNCHECKED_CAST")
+        return if (transform == null)
+            result as O
+        else
+            transform.invoke(result)
     }
 
 }
