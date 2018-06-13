@@ -63,7 +63,7 @@ abstract class BaseRepository {
      * @param type The type of the result of the call, maps to <T>
      * @param call The call to execute
      * @param nullableType Boolean indicating if T is nullable
-     * @param transform Optional transformation function that is invoked when the call has completed with success
+     * @param transform Optional transformation function that is invoked when the call has completed with success. If transform is null, 'O is T' is required
      * @return A future that can be used to observe the result of the call
      */
     @Suppress("UNCHECKED_CAST")
@@ -71,7 +71,10 @@ abstract class BaseRepository {
                                   call: Call<T>,
                                   nullableType: Boolean,
                                   transform: ((T) -> O)?): ObservableFuture<O> {
-        return call.wrapToFuture(type, nullableType, transform)
+        return if (transform == null)
+            call.wrapToFuture(type, nullableType) as ObservableFuture<O>
+        else
+            call.wrapToFuture(type, nullableType, transform)
     }
 
     /**

@@ -51,6 +51,7 @@ interface ObservableFuture<T> {
          */
         fun <T> withData(data: T): ObservableFuture<T> {
             return ConcreteMutableObservableFuture<T>().apply {
+                isSimple = true
                 onResult(data)
             }
         }
@@ -188,6 +189,15 @@ interface ObservableFuture<T> {
     infix fun peek(listener: (T) -> Unit): ObservableFuture<T>
 
     /**
+     * Peeks the future to receive its result in both the success and failure scenarios. The listener is invoked on an unspecified thread but is guaranteed to be
+     * called BEFORE the regular success or failure listener (set using [onSuccess] and/or [onFailure])
+     *
+     * @param listener  Listener to be invoked when the future completes.
+     * @return The future itself, allows chaining.
+     */
+    infix fun peekBoth(listener: (T?, Throwable?) -> Unit): ObservableFuture<T>
+
+    /**
      * Chains this future together with the provided future. On success of this future, pass the result to the provided callback to create
      * the second future. The result of the created future can be observed using the returned future. If this future retuns an error,
      * the error is propagated to the returned future
@@ -196,6 +206,12 @@ interface ObservableFuture<T> {
      * @return A new future which can be used to observe the result of the future created by [chain]
      */
     infix fun <V> andThen(chain: (T) -> ObservableFuture<V>): ObservableFuture<V> {
+        if (this is ConcreteMutableObservableFuture<T>){
+            if (isSimple){
+                @Suppress("UNCHECKED_CAST")
+                return chain(data as T)
+            }
+        }
         val merged = ConcreteMutableObservableFuture<V>()
         onSuccess { firstResult ->
             chain(firstResult) onSuccess (merged::onResult) onFailure (merged::onResult) observe onCaller
@@ -212,6 +228,18 @@ interface ObservableFuture<T> {
      */
     infix fun <V> andThenAlso(chain: (T) -> ObservableFuture<V>): ObservableFuture<Pair<T, V>> {
         val merged = ConcreteMutableObservableFuture<Pair<T, V>>()
+
+        if (this is ConcreteMutableObservableFuture<T>){
+            if (isSimple){
+                @Suppress("UNCHECKED_CAST")
+                val firstResult = data as T
+                chain(firstResult) onSuccess {
+                    merged.onResult(Pair(firstResult, it))
+                } onFailure (merged::onResult) observe onCaller
+                return merged
+            }
+        }
+
         onSuccess { firstResult ->
             chain(firstResult) onSuccess {
                 merged.onResult(Pair(firstResult, it))
@@ -220,7 +248,6 @@ interface ObservableFuture<T> {
         this observe onCaller
         return merged
     }
-
 }
 
 /**
@@ -250,7 +277,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     protected val lock = Any()
 
     private var dataSet = false
-    private var data: T? = null
+    internal var data: T? = null
     protected var failure: Throwable? = null
     protected var cancelled = false
     protected var observing = false
@@ -259,7 +286,10 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     protected var successListener: ((T) -> Unit)? = null
     protected var failureListener: ((Throwable) -> Unit)? = null
     protected var peek: ((T) -> Unit)? = null
+    protected var peekBoth: ((T?, Throwable?) -> Unit)? = null
     private var lifecycle: Lifecycle? = null
+
+    internal var isSimple = false
 
     override fun onSuccess(successListener: (T) -> Unit): ObservableFuture<T> {
         synchronized(lock) {
@@ -336,6 +366,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
             dataSet = true
             data = value
             peek?.invoke(value)
+            peekBoth?.invoke(value, null)
             checkDispatchState()
         }
     }
@@ -346,6 +377,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
                 return
 
             failure = error
+            peekBoth?.invoke(null, error)
             checkDispatchState()
         }
     }
@@ -419,6 +451,21 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
                 if (dataSet) {
                     @Suppress("UNCHECKED_CAST")
                     listener(data as T)
+                }
+            }
+        }
+        return this
+    }
+
+    override fun peekBoth(listener: (T?, Throwable?) -> Unit): ObservableFuture<T> {
+        synchronized(lock) {
+            if (!cancelled) {
+                peekBoth = listener
+                if (dataSet) {
+                    @Suppress("UNCHECKED_CAST")
+                    listener(data as T, null)
+                } else if (failure != null) {
+                    listener(null, failure)
                 }
             }
         }
