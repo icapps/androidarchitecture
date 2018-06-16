@@ -12,11 +12,11 @@
 
 package com.icapps.architecture.controller
 
-import android.arch.lifecycle.ViewModelProvider
-import android.arch.lifecycle.ViewModelProviders
 import android.os.Bundle
-import android.support.v4.app.Fragment
-import android.support.v4.app.FragmentActivity
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelProviders
 import com.icapps.architecture.arch.BaseViewModel
 import java.util.IdentityHashMap
 import javax.inject.Inject
@@ -83,5 +83,3 @@ class ViewModelLifecycleController @Inject constructor(val factory: ViewModelPro
     }
 
 }
-
-

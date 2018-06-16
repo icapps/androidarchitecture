@@ -12,7 +12,7 @@
 
 package com.icapps.architecture.utils.retrofit
 
-import android.arch.lifecycle.Lifecycle
+import androidx.lifecycle.Lifecycle
 import com.icapps.architecture.arch.ConcreteMutableObservableFuture
 import com.icapps.architecture.arch.OnCallerTag
 import okhttp3.Headers

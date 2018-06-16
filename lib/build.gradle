@@ -1,5 +1,5 @@
 plugins {
-    id "com.jfrog.bintray" version "1.7.3"
+    id "com.jfrog.bintray" version "1.8.1"
 }
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
@@ -7,7 +7,7 @@ apply plugin: 'com.github.ben-manes.versions'
 apply plugin: 'maven-publish'
 apply plugin: 'org.jetbrains.dokka'
 
-def artifactVersion = '0.1.6'
+def artifactVersion = '0.2.0-x'
 def artifactGroup = 'com.icapps.android'
 def artifactName = 'architecture'
 
@@ -37,15 +37,20 @@ dependencies {
 
     implementation deps.kotlin.kotlinStdLib
 
-    provided deps.niddler.niddler
-    provided deps.leakCanary.leakCanary
-    provided deps.libs.okhttp
-    provided deps.libs.retrofit
-    provided deps.libs.databinding
-    provided deps.libs.dagger
-    provided 'com.android.support:appcompat-v7:27.1.1'
+    compileOnly deps.niddler.niddler
+    compileOnly deps.leakCanary.leakCanary
+    compileOnly deps.libs.okhttp
+    compileOnly deps.libs.retrofit
+    compileOnly deps.libs.databinding
+    compileOnly deps.libs.dagger
 
-    implementation deps.libs.archExtensions
+    deps.support.each {
+        compileOnly it.value
+    }
+
+    deps.databinding.each {
+        compileOnly it.value
+    }
 }
 
 task sourceJar(type: Jar) {

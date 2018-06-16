@@ -1,6 +1,6 @@
 def versions = [
-        buildtools       : '3.1.2',
-        kotlin           : '1.2.41',
+        buildtools       : '3.2.0-alpha18',
+        kotlin           : '1.2.50',
         detekt           : '1.0.0.RC6-4',
         arch             : '1.1.1',
         androidSupport   : '27.1.0',
@@ -14,6 +14,11 @@ def versions = [
         leakcanary       : '1.5.4',
         dagger           : '2.16',
         dokka            : '0.9.17',
+        appCompatX       : '1.0.0-alpha3',
+        annotX           : '1.0.0-alpha3',
+        archX            : '2.0.0-alpha1',
+        databindingOld   : '3.1.2',
+        databindingX     : '3.2.0-alpha11',
 ]
 
 ext.versions = versions
@@ -30,16 +35,16 @@ def kotlin = [
 ]
 
 def support = [
-        supportV4  : "com.android.support:support-fragment:${versions.androidSupport}",
-        annotations: "com.android.support:support-annotations:${versions.androidSupport}",
+        appCompatX     : "androidx.appcompat:appcompat:${versions.appCompatX}",
+        annotX         : "androidx.annotation:annotation:${versions.annotX}",
+        archExtensionsX: "androidx.lifecycle:lifecycle-extensions:${versions.archX}",
 ]
 
 def libs = [
-        archExtensions: "android.arch.lifecycle:extensions:${versions.arch}",
-        retrofit      : "com.squareup.retrofit2:retrofit:${versions.retrofit}",
-        okhttp        : "com.squareup.okhttp3:okhttp:${versions.okhttp}",
-        databinding   : "com.android.databinding:library:${versions.buildtools}",
-        dagger        : "com.google.dagger:dagger:${versions.dagger}",
+        retrofit   : "com.squareup.retrofit2:retrofit:${versions.retrofit}",
+        okhttp     : "com.squareup.okhttp3:okhttp:${versions.okhttp}",
+        databinding: "com.android.databinding:library:${versions.buildtools}",
+        dagger     : "com.google.dagger:dagger:${versions.dagger}",
 ]
 
 def niddler = [
@@ -50,11 +55,16 @@ def leakCanary = [
         leakCanary: "com.squareup.leakcanary:leakcanary-android:${versions.leakcanary}",
 ]
 
+def databinding = [
+        databinding   : "androidx.databinding:library:${versions.databindingX}",
+]
+
 ext.deps = [
         "gradlePlugins": gradlePlugins,
         "kotlin"       : kotlin,
         "support"      : support,
         "libs"         : libs,
         "niddler"      : niddler,
-        "leakCanary"   : leakCanary
+        "leakCanary"   : leakCanary,
+        "databinding"  : databinding,
 ]

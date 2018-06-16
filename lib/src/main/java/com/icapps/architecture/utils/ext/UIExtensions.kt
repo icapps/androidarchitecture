@@ -15,14 +15,15 @@ package com.icapps.architecture.utils.ext
 import android.app.Activity
 import android.app.Fragment
 import android.content.Context
+import android.content.res.ColorStateList
 import android.content.res.Resources
-import android.databinding.DataBindingUtil
-import android.databinding.ViewDataBinding
 import android.graphics.drawable.Drawable
-import android.support.annotation.ColorInt
-import android.support.v4.content.ContextCompat
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.annotation.ColorInt
+import androidx.core.content.ContextCompat
+import androidx.databinding.DataBindingUtil
+import androidx.databinding.ViewDataBinding
 
 /**
  * @author Nicola Verbeeck
@@ -54,7 +55,7 @@ inline fun <T : ViewDataBinding> Int.inflate(fragment: Fragment, into: ViewGroup
 }
 
 @Suppress("NOTHING_TO_INLINE")
-inline fun <T : ViewDataBinding> Int.inflate(fragment: android.support.v4.app.Fragment, into: ViewGroup?, attach: Boolean = false): T {
+inline fun <T : ViewDataBinding> Int.inflate(fragment: androidx.fragment.app.Fragment, into: ViewGroup?, attach: Boolean = false): T {
     return inflate(fragment.activity!!, into, attach)
 }
 
@@ -70,6 +71,9 @@ inline fun Int.str(resources: Resources): String = resources.getString(this)
 @Suppress("NOTHING_TO_INLINE")
 @ColorInt
 inline fun Int.color(context: Context): Int = ContextCompat.getColor(context, this)
+
+@Suppress("NOTHING_TO_INLINE")
+inline fun Int.colors(context: Context): ColorStateList = ContextCompat.getColorStateList(context, this)!!
 
 @Suppress("NOTHING_TO_INLINE")
 inline fun Int.drawable(context: Context): Drawable? = ContextCompat.getDrawable(context, this)

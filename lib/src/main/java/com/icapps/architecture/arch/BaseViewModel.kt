@@ -12,9 +12,9 @@
 
 package com.icapps.architecture.arch
 
-import android.arch.lifecycle.ViewModel
 import android.os.Bundle
-import android.support.annotation.CallSuper
+import androidx.annotation.CallSuper
+import androidx.lifecycle.ViewModel
 
 /**
  * @see ViewModel that is 'aware' of its restoration state. Contains methods for saving and restoring state

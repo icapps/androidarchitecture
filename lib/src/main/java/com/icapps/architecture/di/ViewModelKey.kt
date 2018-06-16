@@ -12,7 +12,7 @@
 
 package com.icapps.architecture.di
 
-import android.arch.lifecycle.ViewModel
+import androidx.lifecycle.ViewModel
 import dagger.MapKey
 import java.lang.annotation.Documented
 import java.lang.annotation.ElementType
