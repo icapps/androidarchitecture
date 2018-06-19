@@ -31,8 +31,17 @@ import java.util.concurrent.TimeUnit
  */
 class OnCallerTag internal constructor()
 
-/** Instance if the [OnCallerTag] to be used with [ObservableFuture] */
+/**
+ * Tagging class used to indicate that the future should dispatch the results on the main thread. Whenever possible use the lifecycle version of observe which automatically
+ * cancels the call when the lifecycle enters the stopped state
+ */
+class OnMainThreadTag internal constructor()
+
+/** Instance of the [OnCallerTag] to be used with [ObservableFuture] */
 val onCaller = OnCallerTag()
+
+/** Instance of the [OnMainThreadTag] to be used with [ObservableFuture] */
+val onMain = OnMainThreadTag()
 
 /**
  * Future concept which provides convenient methods for listening for results and/or errors
@@ -180,6 +189,11 @@ interface ObservableFuture<T> {
     infix fun observe(onCaller: OnCallerTag): ObservableFuture<T>
 
     /**
+     *
+     */
+    infix fun observe(onMain: OnMainThreadTag): ObservableFuture<T>
+
+    /**
      * Peeks the future to receive its result in a success scenario. The listener is invoked on an unspecified thread but is guaranteed to be
      * called BEFORE the regular success listener (set using [onSuccess])
      *
@@ -206,8 +220,8 @@ interface ObservableFuture<T> {
      * @return A new future which can be used to observe the result of the future created by [chain]
      */
     infix fun <V> andThen(chain: (T) -> ObservableFuture<V>): ObservableFuture<V> {
-        if (this is ConcreteMutableObservableFuture<T>){
-            if (isSimple){
+        if (this is ConcreteMutableObservableFuture<T>) {
+            if (isSimple) {
                 @Suppress("UNCHECKED_CAST")
                 return chain(data as T)
             }
@@ -229,8 +243,8 @@ interface ObservableFuture<T> {
     infix fun <V> andThenAlso(chain: (T) -> ObservableFuture<V>): ObservableFuture<Pair<T, V>> {
         val merged = ConcreteMutableObservableFuture<Pair<T, V>>()
 
-        if (this is ConcreteMutableObservableFuture<T>){
-            if (isSimple){
+        if (this is ConcreteMutableObservableFuture<T>) {
+            if (isSimple) {
                 @Suppress("UNCHECKED_CAST")
                 val firstResult = data as T
                 chain(firstResult) onSuccess {
@@ -329,18 +343,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     override fun observe(lifecycle: Lifecycle): ConcreteMutableObservableFuture<T> {
         lifecycle.addObserver(this)
         this.lifecycle = lifecycle
-        synchronized(lock) {
-            if (cancelled)
-                return this
-
-            if (observing)
-                throw IllegalStateException("Already observing")
-
-            dispatchToMain = true
-            observing = true
-            checkDispatchState()
-        }
-        return this
+        return observe(onMain)
     }
 
     override fun observe(onCaller: OnCallerTag): ConcreteMutableObservableFuture<T> {
@@ -352,6 +355,21 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
                 throw IllegalStateException("Already observing")
 
             dispatchToMain = false
+            observing = true
+            checkDispatchState()
+        }
+        return this
+    }
+
+    override fun observe(onMain: OnMainThreadTag): ConcreteMutableObservableFuture<T> {
+        synchronized(lock) {
+            if (cancelled)
+                return this
+
+            if (observing)
+                throw IllegalStateException("Already observing")
+
+            dispatchToMain = true
             observing = true
             checkDispatchState()
         }
