@@ -66,6 +66,18 @@ interface ObservableFuture<T> {
         }
 
         /**
+         * Create a simple [ObservableFuture] that simply returns the provided error
+         *
+         * @param error The error to be returned as failure for this future
+         * @return A future that simply returns the provided error
+         */
+        fun <T> withError(error: Throwable): ObservableFuture<T> {
+            return ConcreteMutableObservableFuture<T>().apply {
+                onResult(error)
+            }
+        }
+
+        /**
          * Creates an [ObservableFuture] which combines the results of the two provided observables into a single unified result
          * The result will be delivered when both the futures have been completed. If an error is returned by either of the
          * futures, the combination is considered to be in error and the 'first' exception will be returned
@@ -223,7 +235,11 @@ interface ObservableFuture<T> {
         if (this is ConcreteMutableObservableFuture<T>) {
             if (isSimple) {
                 @Suppress("UNCHECKED_CAST")
-                return chain(data as T)
+                return try {
+                    chain(data as T)
+                } catch (e: Throwable) {
+                    withError(e)
+                }
             }
         }
         val merged = ConcreteMutableObservableFuture<V>()
@@ -247,10 +263,15 @@ interface ObservableFuture<T> {
             if (isSimple) {
                 @Suppress("UNCHECKED_CAST")
                 val firstResult = data as T
-                chain(firstResult) onSuccess {
-                    merged.onResult(Pair(firstResult, it))
-                } onFailure (merged::onResult) observe onCaller
-                return merged
+                return try {
+                    chain(firstResult) onSuccess {
+                        merged.onResult(Pair(firstResult, it))
+                    } onFailure (merged::onResult) observe onCaller
+                    merged
+                } catch (e: Throwable) {
+                    merged.onResult(e)
+                    merged
+                }
             }
         }
 
@@ -430,13 +451,22 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     protected fun doDispatch(data: T) {
         synchronized(lock) {
             successListener?.let { listener ->
-                if (!dispatchToMain || (Looper.myLooper() === Looper.getMainLooper()))
-                    listener(data)
-                else
+                if (!dispatchToMain || (Looper.myLooper() === Looper.getMainLooper())) {
+                    try {
+                        listener(data)
+                    } catch (e: Throwable) {
+                        onResult(data)
+                    }
+                } else
                     ObservableFuture.mainDispatcher.post {
                         synchronized(lock) {
-                            if (!cancelled)
-                                listener(data)
+                            if (!cancelled) {
+                                try {
+                                    listener(data)
+                                } catch (e: Throwable) {
+                                    onResult(e)
+                                }
+                            }
                         }
                     }
             }
@@ -450,12 +480,21 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
         synchronized(lock) {
             failureListener?.let { listener ->
                 if (!dispatchToMain || (Looper.myLooper() == Looper.getMainLooper()))
-                    listener(failure)
+                    try {
+                        listener(failure)
+                    } catch (e: Throwable) {
+                        //Ignore failure in failure
+                    }
                 else
                     ObservableFuture.mainDispatcher.post {
                         synchronized(lock) {
-                            if (!cancelled)
-                                listener(failure)
+                            if (!cancelled) {
+                                try {
+                                    listener(failure)
+                                } catch (e: Throwable) {
+                                    //Ignore failure in failure
+                                }
+                            }
                         }
                     }
             }
