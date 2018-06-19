@@ -72,7 +72,7 @@ fun <T, O> Call<T>.wrapToFuture(type: Type, nullableType: Boolean, transform: (T
  * @author Nicola Verbeeck
  * @version 1
  */
-class ServiceException : IOException {
+open class ServiceException : IOException {
 
     val response: okhttp3.Response?
     val request: Request?
