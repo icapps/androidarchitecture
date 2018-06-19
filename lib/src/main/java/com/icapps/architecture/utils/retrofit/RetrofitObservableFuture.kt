@@ -15,6 +15,7 @@ package com.icapps.architecture.utils.retrofit
 import android.arch.lifecycle.Lifecycle
 import com.icapps.architecture.arch.ConcreteMutableObservableFuture
 import com.icapps.architecture.arch.OnCallerTag
+import com.icapps.architecture.arch.OnMainThreadTag
 import okhttp3.Headers
 import okhttp3.ResponseBody
 import retrofit2.Call
@@ -81,6 +82,20 @@ class RetrofitObservableFuture<T, O>(private val call: Call<T>,
                 return this
 
             super.observe(onCaller)
+            enqueue()
+        }
+        return this
+    }
+
+    /**
+     * Starts the call on a background thread and delivers the results to the main thread
+     */
+    override fun observe(onMain: OnMainThreadTag): ConcreteMutableObservableFuture<O> {
+        synchronized(lock) {
+            if (cancelled)
+                return this
+
+            super.observe(onMain)
             enqueue()
         }
         return this
