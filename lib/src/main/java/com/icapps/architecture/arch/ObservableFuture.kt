@@ -362,9 +362,21 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     }
 
     override fun observe(lifecycle: Lifecycle): ConcreteMutableObservableFuture<T> {
-        lifecycle.addObserver(this)
-        this.lifecycle = lifecycle
-        return observe(onMain)
+        synchronized(lock) {
+            if (cancelled)
+                return this
+
+            if (observing)
+                throw IllegalStateException("Already observing")
+
+            lifecycle.addObserver(this)
+            this.lifecycle = lifecycle
+
+            dispatchToMain = true
+            observing = true
+            checkDispatchState()
+        }
+        return this
     }
 
     override fun observe(onCaller: OnCallerTag): ConcreteMutableObservableFuture<T> {
