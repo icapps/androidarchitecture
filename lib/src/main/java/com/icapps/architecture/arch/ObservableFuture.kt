@@ -467,7 +467,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
                     try {
                         listener(data)
                     } catch (e: Throwable) {
-                        onResult(data)
+                        onResult(e)
                     }
                 } else
                     ObservableFuture.mainDispatcher.post {
