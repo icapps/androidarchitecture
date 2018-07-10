@@ -31,8 +31,17 @@ import java.util.concurrent.TimeUnit
  */
 class OnCallerTag internal constructor()
 
-/** Instance if the [OnCallerTag] to be used with [ObservableFuture] */
+/**
+ * Tagging class used to indicate that the future should dispatch the results on the main thread. Whenever possible use the lifecycle version of observe which automatically
+ * cancels the call when the lifecycle enters the stopped state
+ */
+class OnMainThreadTag internal constructor()
+
+/** Instance of the [OnCallerTag] to be used with [ObservableFuture] */
 val onCaller = OnCallerTag()
+
+/** Instance of the [OnMainThreadTag] to be used with [ObservableFuture] */
+val onMain = OnMainThreadTag()
 
 /**
  * Future concept which provides convenient methods for listening for results and/or errors
@@ -53,6 +62,18 @@ interface ObservableFuture<T> {
             return ConcreteMutableObservableFuture<T>().apply {
                 isSimple = true
                 onResult(data)
+            }
+        }
+
+        /**
+         * Create a simple [ObservableFuture] that simply returns the provided error
+         *
+         * @param error The error to be returned as failure for this future
+         * @return A future that simply returns the provided error
+         */
+        fun <T> withError(error: Throwable): ObservableFuture<T> {
+            return ConcreteMutableObservableFuture<T>().apply {
+                onResult(error)
             }
         }
 
@@ -180,6 +201,11 @@ interface ObservableFuture<T> {
     infix fun observe(onCaller: OnCallerTag): ObservableFuture<T>
 
     /**
+     *
+     */
+    infix fun observe(onMain: OnMainThreadTag): ObservableFuture<T>
+
+    /**
      * Peeks the future to receive its result in a success scenario. The listener is invoked on an unspecified thread but is guaranteed to be
      * called BEFORE the regular success listener (set using [onSuccess])
      *
@@ -206,10 +232,14 @@ interface ObservableFuture<T> {
      * @return A new future which can be used to observe the result of the future created by [chain]
      */
     infix fun <V> andThen(chain: (T) -> ObservableFuture<V>): ObservableFuture<V> {
-        if (this is ConcreteMutableObservableFuture<T>){
-            if (isSimple){
+        if (this is ConcreteMutableObservableFuture<T>) {
+            if (isSimple) {
                 @Suppress("UNCHECKED_CAST")
-                return chain(data as T)
+                return try {
+                    chain(data as T)
+                } catch (e: Throwable) {
+                    withError(e)
+                }
             }
         }
         val merged = ConcreteMutableObservableFuture<V>()
@@ -229,14 +259,19 @@ interface ObservableFuture<T> {
     infix fun <V> andThenAlso(chain: (T) -> ObservableFuture<V>): ObservableFuture<Pair<T, V>> {
         val merged = ConcreteMutableObservableFuture<Pair<T, V>>()
 
-        if (this is ConcreteMutableObservableFuture<T>){
-            if (isSimple){
+        if (this is ConcreteMutableObservableFuture<T>) {
+            if (isSimple) {
                 @Suppress("UNCHECKED_CAST")
                 val firstResult = data as T
-                chain(firstResult) onSuccess {
-                    merged.onResult(Pair(firstResult, it))
-                } onFailure (merged::onResult) observe onCaller
-                return merged
+                return try {
+                    chain(firstResult) onSuccess {
+                        merged.onResult(Pair(firstResult, it))
+                    } onFailure (merged::onResult) observe onCaller
+                    merged
+                } catch (e: Throwable) {
+                    merged.onResult(e)
+                    merged
+                }
             }
         }
 
@@ -327,14 +362,15 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     }
 
     override fun observe(lifecycle: Lifecycle): ConcreteMutableObservableFuture<T> {
-        lifecycle.addObserver(this)
-        this.lifecycle = lifecycle
         synchronized(lock) {
             if (cancelled)
                 return this
 
             if (observing)
                 throw IllegalStateException("Already observing")
+
+            lifecycle.addObserver(this)
+            this.lifecycle = lifecycle
 
             dispatchToMain = true
             observing = true
@@ -352,6 +388,21 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
                 throw IllegalStateException("Already observing")
 
             dispatchToMain = false
+            observing = true
+            checkDispatchState()
+        }
+        return this
+    }
+
+    override fun observe(onMain: OnMainThreadTag): ConcreteMutableObservableFuture<T> {
+        synchronized(lock) {
+            if (cancelled)
+                return this
+
+            if (observing)
+                throw IllegalStateException("Already observing")
+
+            dispatchToMain = true
             observing = true
             checkDispatchState()
         }
@@ -412,13 +463,22 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     protected fun doDispatch(data: T) {
         synchronized(lock) {
             successListener?.let { listener ->
-                if (!dispatchToMain || (Looper.myLooper() === Looper.getMainLooper()))
-                    listener(data)
-                else
+                if (!dispatchToMain || (Looper.myLooper() === Looper.getMainLooper())) {
+                    try {
+                        listener(data)
+                    } catch (e: Throwable) {
+                        onResult(e)
+                    }
+                } else
                     ObservableFuture.mainDispatcher.post {
                         synchronized(lock) {
-                            if (!cancelled)
-                                listener(data)
+                            if (!cancelled) {
+                                try {
+                                    listener(data)
+                                } catch (e: Throwable) {
+                                    onResult(e)
+                                }
+                            }
                         }
                     }
             }
@@ -432,12 +492,21 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
         synchronized(lock) {
             failureListener?.let { listener ->
                 if (!dispatchToMain || (Looper.myLooper() == Looper.getMainLooper()))
-                    listener(failure)
+                    try {
+                        listener(failure)
+                    } catch (e: Throwable) {
+                        //Ignore failure in failure
+                    }
                 else
                     ObservableFuture.mainDispatcher.post {
                         synchronized(lock) {
-                            if (!cancelled)
-                                listener(failure)
+                            if (!cancelled) {
+                                try {
+                                    listener(failure)
+                                } catch (e: Throwable) {
+                                    //Ignore failure in failure
+                                }
+                            }
                         }
                     }
             }

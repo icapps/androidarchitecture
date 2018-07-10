@@ -15,6 +15,7 @@ package com.icapps.architecture.utils.retrofit
 import androidx.lifecycle.Lifecycle
 import com.icapps.architecture.arch.ConcreteMutableObservableFuture
 import com.icapps.architecture.arch.OnCallerTag
+import com.icapps.architecture.arch.OnMainThreadTag
 import okhttp3.Headers
 import okhttp3.ResponseBody
 import retrofit2.Call
@@ -34,13 +35,16 @@ import java.lang.reflect.Type
  * @param headerInspector Optional function to be invoked when the call has executed with success, gets the headers of the response
  * @param transform Optional transformation function which takes the body (after being transformed by the optional headerInspector) and is allowed to transform it
  * and the response data and should return the response data optionally changed. The result of this function, if set, is the data that is
+ * @param errorTransformer  Optional transformer which takes in the service error (optionally with a body set). This error is created from a retrofit exception or constructed
+ * using the body in case of a HTTP failure. This callback is executed on an unspecified thread
  * returned in the [com.icapps.architecture.arch.ObservableFuture]
  */
 class RetrofitObservableFuture<T, O>(private val call: Call<T>,
                                      type: Type,
                                      private val nullableType: Boolean,
                                      private val headerInspector: ((Headers, T) -> T)?,
-                                     private val transform: ((T) -> O)?) : ConcreteMutableObservableFuture<O>() {
+                                     private val transform: ((T) -> O)?,
+                                     private val errorTransformer: ((ServiceException) -> Throwable)?) : ConcreteMutableObservableFuture<O>() {
 
     /** Boolean indicating if the result is actually [Unit] and no body is expected */
     private val isEmptyBody = type == Unit::class.java
@@ -84,13 +88,38 @@ class RetrofitObservableFuture<T, O>(private val call: Call<T>,
     }
 
     /**
+     * Starts the call on a background thread and delivers the results to the main thread
+     */
+    override fun observe(onMain: OnMainThreadTag): ConcreteMutableObservableFuture<O> {
+        synchronized(lock) {
+            if (cancelled)
+                return this
+
+            super.observe(onMain)
+            enqueue()
+        }
+        return this
+    }
+
+    /**
      * Executes the call on THIS thread. The timeout parameter is ignored since it cannot be set per-request
      *
      * @param timeout Ignored
      */
     override fun execute(timeout: Long): O {
         //Timeout is ignored here, timeout should be set on HTTP client and cannot be changed per-request
-        return handleResponse(call.execute())
+        try {
+            val response = handleResponse(call.execute())
+            peek?.let { it(response) }
+            peekBoth?.let { it(response, null) }
+            return response
+        } catch (e: Throwable) {
+            try {
+                peekBoth?.let { it(null, e) }
+            } catch (ignore: Throwable) {
+            }
+            throw e
+        }
     }
 
     /**
@@ -99,7 +128,7 @@ class RetrofitObservableFuture<T, O>(private val call: Call<T>,
     private fun enqueue() {
         call.enqueue(object : Callback<T> {
             override fun onFailure(theCall: Call<T>?, t: Throwable) {
-                onResult(ServiceException(t, call.request()))
+                onResult(doTransformError(ServiceException(t, call.request())))
             }
 
             override fun onResponse(call: Call<T>?, response: Response<T>) {
@@ -129,7 +158,7 @@ class RetrofitObservableFuture<T, O>(private val call: Call<T>,
                 val body = response.body()
                 if (body == null && !nullableType) {
                     val errorBody = response.errorBody()?.string()
-                    throw ServiceException("Empty response where a body was expected", errorBody, response.raw(), call.request())
+                    throw doTransformError(ServiceException("Empty response where a body was expected", errorBody, response.raw(), call.request()))
                 } else {
                     return doTransform(if (headerInspector != null)
                                            headerInspector!!(response.headers(), body as T)
@@ -139,7 +168,7 @@ class RetrofitObservableFuture<T, O>(private val call: Call<T>,
             }
         } else {
             val errorBody = response.errorBody()?.string()
-            throw ServiceException(response.message(), errorBody, response.raw(), call.request())
+            throw doTransformError(ServiceException(response.message(), errorBody, response.raw(), call.request()))
         }
     }
 
@@ -149,6 +178,10 @@ class RetrofitObservableFuture<T, O>(private val call: Call<T>,
             result as O
         else
             transform.invoke(result)
+    }
+
+    private fun doTransformError(error: ServiceException): Throwable {
+        return errorTransformer?.invoke(error) ?: error
     }
 
 }
