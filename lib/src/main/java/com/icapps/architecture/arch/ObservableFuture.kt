@@ -283,6 +283,16 @@ interface ObservableFuture<T> {
         this observe onCaller
         return merged
     }
+
+    /**
+     * Creates a new observable future which will return null when this future results in an error. Not that calling this on an already optional future
+     * is dangerous. The returned future has the same execute safety as this future. See {@link RetrofitObservableFuture}
+     *
+     * @return New future which returns null in case of an exception
+     */
+    fun optional(): ObservableFuture<T?> {
+        return OptionalWrapper(this)
+    }
 }
 
 /**
@@ -666,4 +676,88 @@ private class DelegateMergedMutableObservableFuture(private val delegates: Colle
 @Suppress("UNCHECKED_CAST", "NOTHING_TO_INLINE")
 inline fun <T> T.asObservable(): ObservableFuture<T> {
     return ObservableFuture.withData(this)
+}
+
+/**
+ * Class which wraps an observable future that returns null when the original future signals or throws an error
+ */
+private class OptionalWrapper<T>(private val delegate: ObservableFuture<T>) : ObservableFuture<T?> {
+
+    private var cancelled = false
+    private var failureDispatched = false
+    private val lock = Any()
+    private var successListener: ((T?) -> Unit)? = null
+    private var peek: ((T?) -> Unit)? = null
+    private var peekBoth: ((T?, Throwable?) -> Unit)? = null
+
+    init {
+        delegate.onFailure {
+            synchronized(lock) {
+                if (!cancelled && !failureDispatched) {
+                    failureDispatched = true
+                    successListener?.invoke(null)
+                    peek?.invoke(null)
+                    peekBoth?.invoke(null, null)
+                }
+            }
+        }
+    }
+
+    override fun onSuccess(successListener: (T?) -> Unit): ObservableFuture<T?> {
+        delegate.onSuccess(successListener)
+        synchronized(lock) {
+            if (!cancelled)
+                this.successListener = successListener
+        }
+        return this
+    }
+
+    override fun onFailure(failureListener: (Throwable) -> Unit): ObservableFuture<T?> {
+        //Ignore
+        return this
+    }
+
+    override fun execute(timeout: Long): T? {
+        return try {
+            delegate.execute(timeout)
+        } catch (e: Throwable) {
+            null
+        }
+    }
+
+    override fun cancel() {
+        synchronized(lock) {
+            cancelled = true
+            successListener = null
+        }
+        delegate.cancel()
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    override fun observe(lifecycle: Lifecycle): ObservableFuture<T?> = delegate.observe(lifecycle) as ObservableFuture<T?>
+
+    @Suppress("UNCHECKED_CAST")
+    override fun observe(onCaller: OnCallerTag): ObservableFuture<T?> = delegate.observe(onCaller) as ObservableFuture<T?>
+
+    @Suppress("UNCHECKED_CAST")
+    override fun observe(onMain: OnMainThreadTag): ObservableFuture<T?> = delegate.observe(onMain) as ObservableFuture<T?>
+
+    override fun peek(listener: (T?) -> Unit): ObservableFuture<T?> {
+        synchronized(lock) {
+            if (!cancelled)
+                peek = listener
+        }
+        delegate.peek(listener)
+        return this
+    }
+
+    override fun peekBoth(listener: (T?, Throwable?) -> Unit): ObservableFuture<T?> {
+        synchronized(lock) {
+            if (!cancelled)
+                peekBoth = listener
+        }
+        delegate.peekBoth(listener)
+        return this
+    }
+
 }
