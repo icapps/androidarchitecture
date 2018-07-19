@@ -690,19 +690,6 @@ private class OptionalWrapper<T>(private val delegate: ObservableFuture<T>) : Ob
     private var peek: ((T?) -> Unit)? = null
     private var peekBoth: ((T?, Throwable?) -> Unit)? = null
 
-    init {
-        delegate.onFailure {
-            synchronized(lock) {
-                if (!cancelled && !failureDispatched) {
-                    failureDispatched = true
-                    successListener?.invoke(null)
-                    peek?.invoke(null)
-                    peekBoth?.invoke(null, null)
-                }
-            }
-        }
-    }
-
     override fun onSuccess(successListener: (T?) -> Unit): ObservableFuture<T?> {
         delegate.onSuccess(successListener)
         synchronized(lock) {
@@ -734,13 +721,22 @@ private class OptionalWrapper<T>(private val delegate: ObservableFuture<T>) : Ob
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun observe(lifecycle: Lifecycle): ObservableFuture<T?> = delegate.observe(lifecycle) as ObservableFuture<T?>
+    override fun observe(lifecycle: Lifecycle): ObservableFuture<T?> {
+        prepareFailureListener()
+        return delegate.observe(lifecycle) as ObservableFuture<T?>
+    }
 
     @Suppress("UNCHECKED_CAST")
-    override fun observe(onCaller: OnCallerTag): ObservableFuture<T?> = delegate.observe(onCaller) as ObservableFuture<T?>
+    override fun observe(onCaller: OnCallerTag): ObservableFuture<T?> {
+        prepareFailureListener()
+        return delegate.observe(onCaller) as ObservableFuture<T?>
+    }
 
     @Suppress("UNCHECKED_CAST")
-    override fun observe(onMain: OnMainThreadTag): ObservableFuture<T?> = delegate.observe(onMain) as ObservableFuture<T?>
+    override fun observe(onMain: OnMainThreadTag): ObservableFuture<T?> {
+        prepareFailureListener()
+        return delegate.observe(onMain) as ObservableFuture<T?>
+    }
 
     override fun peek(listener: (T?) -> Unit): ObservableFuture<T?> {
         synchronized(lock) {
@@ -760,4 +756,16 @@ private class OptionalWrapper<T>(private val delegate: ObservableFuture<T>) : Ob
         return this
     }
 
+    private fun prepareFailureListener() {
+        delegate.onFailure {
+            synchronized(lock) {
+                if (!cancelled && !failureDispatched) {
+                    failureDispatched = true
+                    successListener?.invoke(null)
+                    peek?.invoke(null)
+                    peekBoth?.invoke(null, null)
+                }
+            }
+        }
+    }
 }
