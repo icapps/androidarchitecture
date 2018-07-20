@@ -19,6 +19,7 @@ import android.os.Handler
 import android.os.Looper
 import android.support.annotation.WorkerThread
 import com.icapps.architecture.utils.async.assertNotMain
+import java.io.IOException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -31,8 +32,17 @@ import java.util.concurrent.TimeUnit
  */
 class OnCallerTag internal constructor()
 
-/** Instance if the [OnCallerTag] to be used with [ObservableFuture] */
+/**
+ * Tagging class used to indicate that the future should dispatch the results on the main thread. Whenever possible use the lifecycle version of observe which automatically
+ * cancels the call when the lifecycle enters the stopped state
+ */
+class OnMainThreadTag internal constructor()
+
+/** Instance of the [OnCallerTag] to be used with [ObservableFuture] */
 val onCaller = OnCallerTag()
+
+/** Instance of the [OnMainThreadTag] to be used with [ObservableFuture] */
+val onMain = OnMainThreadTag()
 
 /**
  * Future concept which provides convenient methods for listening for results and/or errors
@@ -51,7 +61,20 @@ interface ObservableFuture<T> {
          */
         fun <T> withData(data: T): ObservableFuture<T> {
             return ConcreteMutableObservableFuture<T>().apply {
+                isSimple = true
                 onResult(data)
+            }
+        }
+
+        /**
+         * Create a simple [ObservableFuture] that simply returns the provided error
+         *
+         * @param error The error to be returned as failure for this future
+         * @return A future that simply returns the provided error
+         */
+        fun <T> withError(error: Throwable): ObservableFuture<T> {
+            return ConcreteMutableObservableFuture<T>().apply {
+                onResult(error)
             }
         }
 
@@ -179,6 +202,11 @@ interface ObservableFuture<T> {
     infix fun observe(onCaller: OnCallerTag): ObservableFuture<T>
 
     /**
+     *
+     */
+    infix fun observe(onMain: OnMainThreadTag): ObservableFuture<T>
+
+    /**
      * Peeks the future to receive its result in a success scenario. The listener is invoked on an unspecified thread but is guaranteed to be
      * called BEFORE the regular success listener (set using [onSuccess])
      *
@@ -186,6 +214,15 @@ interface ObservableFuture<T> {
      * @return The future itself, allows chaining.
      */
     infix fun peek(listener: (T) -> Unit): ObservableFuture<T>
+
+    /**
+     * Peeks the future to receive its result in both the success and failure scenarios. The listener is invoked on an unspecified thread but is guaranteed to be
+     * called BEFORE the regular success or failure listener (set using [onSuccess] and/or [onFailure])
+     *
+     * @param listener  Listener to be invoked when the future completes.
+     * @return The future itself, allows chaining.
+     */
+    infix fun peekBoth(listener: (T?, Throwable?) -> Unit): ObservableFuture<T>
 
     /**
      * Chains this future together with the provided future. On success of this future, pass the result to the provided callback to create
@@ -196,6 +233,16 @@ interface ObservableFuture<T> {
      * @return A new future which can be used to observe the result of the future created by [chain]
      */
     infix fun <V> andThen(chain: (T) -> ObservableFuture<V>): ObservableFuture<V> {
+        if (this is ConcreteMutableObservableFuture<T>) {
+            if (isSimple) {
+                @Suppress("UNCHECKED_CAST")
+                return try {
+                    chain(data as T)
+                } catch (e: Throwable) {
+                    withError(e)
+                }
+            }
+        }
         val merged = ConcreteMutableObservableFuture<V>()
         onSuccess { firstResult ->
             chain(firstResult) onSuccess (merged::onResult) onFailure (merged::onResult) observe onCaller
@@ -212,6 +259,23 @@ interface ObservableFuture<T> {
      */
     infix fun <V> andThenAlso(chain: (T) -> ObservableFuture<V>): ObservableFuture<Pair<T, V>> {
         val merged = ConcreteMutableObservableFuture<Pair<T, V>>()
+
+        if (this is ConcreteMutableObservableFuture<T>) {
+            if (isSimple) {
+                @Suppress("UNCHECKED_CAST")
+                val firstResult = data as T
+                return try {
+                    chain(firstResult) onSuccess {
+                        merged.onResult(Pair(firstResult, it))
+                    } onFailure (merged::onResult) observe onCaller
+                    merged
+                } catch (e: Throwable) {
+                    merged.onResult(e)
+                    merged
+                }
+            }
+        }
+
         onSuccess { firstResult ->
             chain(firstResult) onSuccess {
                 merged.onResult(Pair(firstResult, it))
@@ -221,6 +285,15 @@ interface ObservableFuture<T> {
         return merged
     }
 
+    /**
+     * Creates a new observable future which will return null when this future results in an error. Not that calling this on an already optional future
+     * is dangerous. The returned future has the same execute safety as this future. See {@link RetrofitObservableFuture}
+     *
+     * @return New future which returns null in case of an exception
+     */
+    fun optional(): ObservableFuture<T?> {
+        return OptionalWrapper(this)
+    }
 }
 
 /**
@@ -250,7 +323,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     protected val lock = Any()
 
     private var dataSet = false
-    private var data: T? = null
+    internal var data: T? = null
     protected var failure: Throwable? = null
     protected var cancelled = false
     protected var observing = false
@@ -259,7 +332,10 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     protected var successListener: ((T) -> Unit)? = null
     protected var failureListener: ((Throwable) -> Unit)? = null
     protected var peek: ((T) -> Unit)? = null
+    protected var peekBoth: ((T?, Throwable?) -> Unit)? = null
     private var lifecycle: Lifecycle? = null
+
+    internal var isSimple = false
 
     override fun onSuccess(successListener: (T) -> Unit): ObservableFuture<T> {
         synchronized(lock) {
@@ -297,14 +373,15 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     }
 
     override fun observe(lifecycle: Lifecycle): ConcreteMutableObservableFuture<T> {
-        lifecycle.addObserver(this)
-        this.lifecycle = lifecycle
         synchronized(lock) {
             if (cancelled)
                 return this
 
             if (observing)
                 throw IllegalStateException("Already observing")
+
+            lifecycle.addObserver(this)
+            this.lifecycle = lifecycle
 
             dispatchToMain = true
             observing = true
@@ -328,6 +405,21 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
         return this
     }
 
+    override fun observe(onMain: OnMainThreadTag): ConcreteMutableObservableFuture<T> {
+        synchronized(lock) {
+            if (cancelled)
+                return this
+
+            if (observing)
+                throw IllegalStateException("Already observing")
+
+            dispatchToMain = true
+            observing = true
+            checkDispatchState()
+        }
+        return this
+    }
+
     override fun onResult(value: T) {
         synchronized(lock) {
             if (cancelled || failure != null)
@@ -336,6 +428,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
             dataSet = true
             data = value
             peek?.invoke(value)
+            peekBoth?.invoke(value, null)
             checkDispatchState()
         }
     }
@@ -346,6 +439,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
                 return
 
             failure = error
+            peekBoth?.invoke(null, error)
             checkDispatchState()
         }
     }
@@ -380,13 +474,22 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     protected fun doDispatch(data: T) {
         synchronized(lock) {
             successListener?.let { listener ->
-                if (!dispatchToMain || (Looper.myLooper() === Looper.getMainLooper()))
-                    listener(data)
-                else
+                if (!dispatchToMain || (Looper.myLooper() === Looper.getMainLooper())) {
+                    try {
+                        listener(data)
+                    } catch (e: Throwable) {
+                        onResult(e)
+                    }
+                } else
                     ObservableFuture.mainDispatcher.post {
                         synchronized(lock) {
-                            if (!cancelled)
-                                listener(data)
+                            if (!cancelled) {
+                                try {
+                                    listener(data)
+                                } catch (e: Throwable) {
+                                    onResult(e)
+                                }
+                            }
                         }
                     }
             }
@@ -400,12 +503,21 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
         synchronized(lock) {
             failureListener?.let { listener ->
                 if (!dispatchToMain || (Looper.myLooper() == Looper.getMainLooper()))
-                    listener(failure)
+                    try {
+                        listener(failure)
+                    } catch (e: Throwable) {
+                        //Ignore failure in failure
+                    }
                 else
                     ObservableFuture.mainDispatcher.post {
                         synchronized(lock) {
-                            if (!cancelled)
-                                listener(failure)
+                            if (!cancelled) {
+                                try {
+                                    listener(failure)
+                                } catch (e: Throwable) {
+                                    //Ignore failure in failure
+                                }
+                            }
                         }
                     }
             }
@@ -419,6 +531,21 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
                 if (dataSet) {
                     @Suppress("UNCHECKED_CAST")
                     listener(data as T)
+                }
+            }
+        }
+        return this
+    }
+
+    override fun peekBoth(listener: (T?, Throwable?) -> Unit): ObservableFuture<T> {
+        synchronized(lock) {
+            if (!cancelled) {
+                peekBoth = listener
+                if (dataSet) {
+                    @Suppress("UNCHECKED_CAST")
+                    listener(data as T, null)
+                } else if (failure != null) {
+                    listener(null, failure)
                 }
             }
         }
@@ -452,7 +579,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
         if (dataSet)
             return res as T
 
-        throw IllegalStateException("Future finished without result or exception")
+        throw IOException("Future finished without result or exception")
     }
 }
 
@@ -550,4 +677,96 @@ private class DelegateMergedMutableObservableFuture(private val delegates: Colle
 @Suppress("UNCHECKED_CAST", "NOTHING_TO_INLINE")
 inline fun <T> T.asObservable(): ObservableFuture<T> {
     return ObservableFuture.withData(this)
+}
+
+/**
+ * Class which wraps an observable future that returns null when the original future signals or throws an error
+ */
+private class OptionalWrapper<T>(private val delegate: ObservableFuture<T>) : ObservableFuture<T?> {
+
+    private var cancelled = false
+    private var failureDispatched = false
+    private val lock = Any()
+    private var successListener: ((T?) -> Unit)? = null
+    private var peek: ((T?) -> Unit)? = null
+    private var peekBoth: ((T?, Throwable?) -> Unit)? = null
+
+    override fun onSuccess(successListener: (T?) -> Unit): ObservableFuture<T?> {
+        delegate.onSuccess(successListener)
+        synchronized(lock) {
+            if (!cancelled)
+                this.successListener = successListener
+        }
+        return this
+    }
+
+    override fun onFailure(failureListener: (Throwable) -> Unit): ObservableFuture<T?> {
+        //Ignore
+        return this
+    }
+
+    override fun execute(timeout: Long): T? {
+        return try {
+            delegate.execute(timeout)
+        } catch (e: Throwable) {
+            null
+        }
+    }
+
+    override fun cancel() {
+        synchronized(lock) {
+            cancelled = true
+            successListener = null
+        }
+        delegate.cancel()
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    override fun observe(lifecycle: Lifecycle): ObservableFuture<T?> {
+        prepareFailureListener()
+        return delegate.observe(lifecycle) as ObservableFuture<T?>
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    override fun observe(onCaller: OnCallerTag): ObservableFuture<T?> {
+        prepareFailureListener()
+        return delegate.observe(onCaller) as ObservableFuture<T?>
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    override fun observe(onMain: OnMainThreadTag): ObservableFuture<T?> {
+        prepareFailureListener()
+        return delegate.observe(onMain) as ObservableFuture<T?>
+    }
+
+    override fun peek(listener: (T?) -> Unit): ObservableFuture<T?> {
+        synchronized(lock) {
+            if (!cancelled)
+                peek = listener
+        }
+        delegate.peek(listener)
+        return this
+    }
+
+    override fun peekBoth(listener: (T?, Throwable?) -> Unit): ObservableFuture<T?> {
+        synchronized(lock) {
+            if (!cancelled)
+                peekBoth = listener
+        }
+        delegate.peekBoth(listener)
+        return this
+    }
+
+    private fun prepareFailureListener() {
+        delegate.onFailure {
+            synchronized(lock) {
+                if (!cancelled && !failureDispatched) {
+                    failureDispatched = true
+                    successListener?.invoke(null)
+                    peek?.invoke(null)
+                    peekBoth?.invoke(null, null)
+                }
+            }
+        }
+    }
 }

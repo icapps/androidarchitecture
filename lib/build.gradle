@@ -7,7 +7,7 @@ apply plugin: 'com.github.ben-manes.versions'
 apply plugin: 'maven-publish'
 apply plugin: 'org.jetbrains.dokka'
 
-def artifactVersion = '0.1.3'
+def artifactVersion = '0.1.17'
 def artifactGroup = 'com.icapps.android'
 def artifactName = 'architecture'
 
@@ -28,7 +28,9 @@ android {
         }
     }
     testOptions {
-        unitTests.returnDefaultValues = true
+        unitTests {
+            returnDefaultValues true
+        }
     }
 }
 
@@ -40,13 +42,13 @@ dependencies {
 
     implementation deps.kotlin.kotlinStdLib
 
-    provided deps.niddler.niddler
-    provided deps.leakCanary.leakCanary
-    provided deps.libs.okhttp
-    provided deps.libs.retrofit
-    provided deps.libs.databinding
-    provided deps.libs.dagger
-    provided 'com.android.support:appcompat-v7:27.1.1'
+    compileOnly deps.niddler.niddler
+    compileOnly deps.leakCanary.leakCanary
+    compileOnly deps.libs.okhttp
+    compileOnly deps.libs.retrofit
+    compileOnly deps.libs.databinding
+    compileOnly deps.libs.dagger
+    compileOnly 'com.android.support:appcompat-v7:27.1.1'
 
     implementation deps.libs.archExtensions
 

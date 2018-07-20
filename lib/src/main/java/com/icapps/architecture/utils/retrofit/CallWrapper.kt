@@ -25,10 +25,12 @@ import java.lang.reflect.Type
  *
  * @receiver Call to wrap
  * @param headerInspector Optional transformation function which receives the result and the headers. See [RetrofitObservableFuture]
+ * @param errorTransformer Optional transformation function which receives the exception and can transform it before it is returned to the future
  * @return A future which observes the call
  */
-inline fun <reified T> Call<T>.wrapToFuture(noinline headerInspector: ((Headers, T) -> T)? = null): ObservableFuture<T> {
-    return wrapToFuture(T::class.java, nullableType = (null is T), headerInspector = headerInspector)
+inline fun <reified T> Call<T>.wrapToFuture(noinline headerInspector: ((Headers, T) -> T)? = null,
+                                            noinline errorTransformer: ((ServiceException) -> Throwable)? = null): ObservableFuture<T> {
+    return wrapToFuture(T::class.java, nullableType = (null is T), headerInspector = headerInspector, errorTransformer = errorTransformer)
 }
 
 /**
@@ -38,11 +40,30 @@ inline fun <reified T> Call<T>.wrapToFuture(noinline headerInspector: ((Headers,
  * @param type The type of the data we are wrapping. Should be equivalent to T
  * @param nullableType Boolean indicating if T is nullable
  * @param headerInspector Optional transformation function which receives the result and the headers. See [RetrofitObservableFuture]
+ * @param errorTransformer Optional transformation function which receives the exception and can transform it before it is returned to the future
  * @return A future which observes the call
  */
 @Suppress("UNCHECKED_CAST")
-fun <T> Call<T>.wrapToFuture(type: Type, nullableType: Boolean, headerInspector: ((Headers, T) -> T)? = null): ObservableFuture<T> {
-    return RetrofitObservableFuture(this, type, nullableType, headerInspector)
+fun <T> Call<T>.wrapToFuture(type: Type, nullableType: Boolean, headerInspector: ((Headers, T) -> T)? = null,
+                             errorTransformer: ((ServiceException) -> Throwable)? = null): ObservableFuture<T> {
+    return RetrofitObservableFuture(this, type, nullableType, headerInspector, transform = null, errorTransformer = errorTransformer)
+}
+
+/**
+ * Helper that wraps a call to an [ObservableFuture].
+ *
+ * @receiver Call to wrap
+ * @param type The type of the data we are wrapping. Should be equivalent to T
+ * @param nullableType Boolean indicating if T is nullable
+ * @param transform Transformation function which transforms the result
+ * @param headerInspector Optional transformation function which receives the result and the headers. See [RetrofitObservableFuture]
+ * @param errorTransformer Optional transformation function which receives the exception and can transform it before it is returned to the future
+ * @return A future which observes the call
+ */
+@Suppress("UNCHECKED_CAST")
+fun <T, O> Call<T>.wrapToFuture(type: Type, nullableType: Boolean, transform: (T) -> O, headerInspector: ((Headers, T) -> T)? = null,
+                                errorTransformer: ((ServiceException) -> Throwable)? = null): ObservableFuture<O> {
+    return RetrofitObservableFuture(this, type, nullableType, headerInspector, transform, errorTransformer = errorTransformer)
 }
 
 /**
@@ -51,7 +72,7 @@ fun <T> Call<T>.wrapToFuture(type: Type, nullableType: Boolean, headerInspector:
  * @author Nicola Verbeeck
  * @version 1
  */
-class ServiceException : IOException {
+open class ServiceException : IOException {
 
     val response: okhttp3.Response?
     val request: Request?
