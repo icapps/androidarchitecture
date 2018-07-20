@@ -42,6 +42,10 @@ def libs = [
         dagger        : "com.google.dagger:dagger:${versions.dagger}",
 ]
 
+def testing = [
+        junit: "junit:junit:${versions.junit}",
+]
+
 def niddler = [
         niddler: "com.icapps.niddler:niddler:${versions.niddler}",
 ]
@@ -56,5 +60,6 @@ ext.deps = [
         "support"      : support,
         "libs"         : libs,
         "niddler"      : niddler,
-        "leakCanary"   : leakCanary
+        "leakCanary"   : leakCanary,
+        "testing"      : testing
 ]

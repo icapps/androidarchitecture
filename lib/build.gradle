@@ -52,7 +52,7 @@ dependencies {
 
     implementation deps.libs.archExtensions
 
-    testCompile 'junit:junit:4.12'
+    testImplementation deps.testing.junit
 }
 
 task sourceJar(type: Jar) {
