@@ -19,6 +19,7 @@ import android.os.Handler
 import android.os.Looper
 import android.support.annotation.WorkerThread
 import com.icapps.architecture.utils.async.assertNotMain
+import java.io.IOException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -578,7 +579,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
         if (dataSet)
             return res as T
 
-        throw IllegalStateException("Future finished without result or exception")
+        throw IOException("Future finished without result or exception")
     }
 }
 
