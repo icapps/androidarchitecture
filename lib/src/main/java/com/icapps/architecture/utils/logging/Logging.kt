@@ -30,6 +30,7 @@ object Logger {
     private const val MAX_LOG_LENGTH = 4000
     private const val MAX_TAG_LENGTH = 23
     private const val STACK_TRACE_BUFFER_SIZE = 256
+    private val placeHolderRegex = Regex("\\{\\}")
 
     @Suppress("NOTHING_TO_INLINE")
     inline fun debug(tag: String, message: String, arguments: Array<out Any?>?) {
@@ -106,7 +107,7 @@ object Logger {
             return message
 
         var index = 0
-        return message.replace(Regex("\\{\\}")) {
+        return message.replace(placeHolderRegex) {
             val idxCopy = index++
             if (idxCopy < second.size)
                 eval(second[idxCopy])
