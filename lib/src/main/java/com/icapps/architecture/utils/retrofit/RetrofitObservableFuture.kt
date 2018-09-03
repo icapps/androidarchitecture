@@ -126,19 +126,23 @@ class RetrofitObservableFuture<T, O>(private val call: Call<T>,
      * Enqueues the request to be executed by retrofit
      */
     private fun enqueue() {
-        call.enqueue(object : Callback<T> {
-            override fun onFailure(theCall: Call<T>?, t: Throwable) {
-                onResult(doTransformError(ServiceException(t, call.request())))
-            }
-
-            override fun onResponse(call: Call<T>?, response: Response<T>) {
-                try {
-                    onResult(handleResponse(response))
-                } catch (e: Throwable) {
-                    onResult(e)
+        try {
+            call.enqueue(object : Callback<T> {
+                override fun onFailure(theCall: Call<T>?, t: Throwable) {
+                    onResult(doTransformError(ServiceException(t, call.request())))
                 }
-            }
-        })
+
+                override fun onResponse(call: Call<T>?, response: Response<T>) {
+                    try {
+                        onResult(handleResponse(response))
+                    } catch (e: Throwable) {
+                        onResult(e)
+                    }
+                }
+            })
+        } catch (e: Throwable) {
+            onResult(e)
+        }
     }
 
     /**
@@ -151,9 +155,9 @@ class RetrofitObservableFuture<T, O>(private val call: Call<T>,
                 return doTransform(Unit as T)
             } else if (isResponseBody) {
                 return doTransform(if (headerInspector != null)
-                                       headerInspector!!(response.headers(), response.body() as T)
-                                   else
-                                       response.body() as T)
+                    headerInspector!!(response.headers(), response.body() as T)
+                else
+                    response.body() as T)
             } else {
                 val body = response.body()
                 if (body == null && !nullableType) {
@@ -161,9 +165,9 @@ class RetrofitObservableFuture<T, O>(private val call: Call<T>,
                     throw doTransformError(ServiceException("Empty response where a body was expected", errorBody, response.raw(), call.request()))
                 } else {
                     return doTransform(if (headerInspector != null)
-                                           headerInspector!!(response.headers(), body as T)
-                                       else
-                                           body as T)
+                        headerInspector!!(response.headers(), body as T)
+                    else
+                        body as T)
                 }
             }
         } else {
