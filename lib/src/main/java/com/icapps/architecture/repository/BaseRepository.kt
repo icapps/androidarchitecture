@@ -13,6 +13,8 @@
 package com.icapps.architecture.repository
 
 import com.icapps.architecture.arch.ObservableFuture
+import com.icapps.architecture.utils.exception.NetworkErrorTraceException
+import com.icapps.architecture.utils.retrofit.ServiceException
 import com.icapps.architecture.utils.retrofit.wrapToFuture
 import retrofit2.Call
 
@@ -23,6 +25,18 @@ import retrofit2.Call
  * @version 1
  */
 abstract class BaseRepository {
+
+    /**
+     * Flag indicating if exceptions reported by retrofit should record the source from where
+     * they were called instead of only containing the trace inside retrofit. Disabled by default,
+     * has a performance impact
+     */
+    protected val keepErrorSource: Boolean
+
+    constructor() : this(false)
+    constructor(keepErrorSource: Boolean) {
+        this.keepErrorSource = keepErrorSource
+    }
 
     /**
      * Overloaded version of [makeCall] which will transform the given call into an observable form
@@ -67,14 +81,24 @@ abstract class BaseRepository {
      * @return A future that can be used to observe the result of the call
      */
     @Suppress("UNCHECKED_CAST")
-    protected fun <T, O> makeCall(type: Class<T>,
-                                  call: Call<T>,
-                                  nullableType: Boolean,
-                                  transform: ((T) -> O)?): ObservableFuture<O> {
+    protected open fun <T, O> makeCall(type: Class<T>,
+                                       call: Call<T>,
+                                       nullableType: Boolean,
+                                       transform: ((T) -> O)?): ObservableFuture<O> {
+        val errorTransformer: ((ServiceException) -> Throwable)? = if (keepErrorSource) {
+            val source = NetworkErrorTraceException();
+
+            { e: ServiceException ->
+                source.init(e)
+                source
+            }
+        } else {
+            null
+        }
         return if (transform == null)
-            call.wrapToFuture(type, nullableType) as ObservableFuture<O>
+            call.wrapToFuture(type, nullableType, errorTransformer = errorTransformer) as ObservableFuture<O>
         else
-            call.wrapToFuture(type, nullableType, transform)
+            call.wrapToFuture(type, nullableType, transform, errorTransformer = errorTransformer)
     }
 
     /**
