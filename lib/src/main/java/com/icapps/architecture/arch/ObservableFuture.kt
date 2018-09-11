@@ -14,10 +14,6 @@ package com.icapps.architecture.arch
 
 import android.os.Handler
 import android.os.Looper
-import androidx.annotation.WorkerThread
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleObserver
-import androidx.lifecycle.OnLifecycleEvent
 import com.icapps.architecture.utils.async.assertNotMain
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
@@ -81,7 +77,8 @@ interface ObservableFuture<T> {
         /**
          * Creates an [ObservableFuture] which combines the results of the two provided observables into a single unified result
          * The result will be delivered when both the futures have been completed. If an error is returned by either of the
-         * futures, the combination is considered to be in error and the 'first' exception will be returned
+         * futures, the combination is considered to be in error and the 'first' exception will be returned.
+         * This method has shortcuts to optimize use cases where one of the futures is returned from [asObservable] or [withData]
          *
          * @param first The first observable to use
          * @param second The second observable to use
@@ -90,6 +87,33 @@ interface ObservableFuture<T> {
          */
         fun <T, V> of(first: ObservableFuture<T>, second: ObservableFuture<V>): ObservableFuture<Pair<T, V>> {
             val merged = ConcreteMutableObservableFuture<Pair<T, V>>()
+            //Shortcut for when the LHS is simple
+            if (first is ConcreteMutableObservableFuture<T> && first.isSimple) {
+                @Suppress("UNCHECKED_CAST")
+                val firstResult = first.data as T
+                return try {
+                    second onSuccess {
+                        merged.onResult(Pair(firstResult, it))
+                    } onFailure (merged::onResult) observe onCaller
+                    merged
+                } catch (e: Throwable) {
+                    merged.onResult(e)
+                    merged
+                }
+            } else if (second is ConcreteMutableObservableFuture<V> && second.isSimple) { //Shortcut for RHS second is simple
+                @Suppress("UNCHECKED_CAST")
+                val secondResult = second.data as V
+                return try {
+                    first onSuccess {
+                        merged.onResult(Pair(it, secondResult))
+                    } onFailure (merged::onResult) observe onCaller
+                    merged
+                } catch (e: Throwable) {
+                    merged.onResult(e)
+                    merged
+                }
+            }
+
             val listVersion = DelegateMergedMutableObservableFuture(listOf(first, second))
             listVersion.onSuccess {
                 @Suppress("UNCHECKED_CAST")
@@ -117,6 +141,31 @@ interface ObservableFuture<T> {
             listVersion.onSuccess {
                 @Suppress("UNCHECKED_CAST")
                 merged.onResult(Triple(it[0] as A, it[1] as B, it[2] as C))
+            }
+            listVersion.onFailure(merged::onResult)
+            listVersion observe onCaller
+            return merged
+        }
+
+        /**
+         * Creates an [ObservableFuture] which combines the results of the three provided observables into a single unified result
+         * The result will be delivered when all the futures have been completed. If an error is returned by any of the
+         * futures, the combination is considered to be in error and the 'first' exception will be returned
+         *
+         * @param first The first observable to use
+         * @param second The second observable to use
+         * @param third The third observable to use
+         * @param fourth The third observable to use
+         * @return An observable which combines the results of the provided observables. You can use destructuring in the success callback
+         * for cleanliness
+         */
+        fun <A, B, C, D> of(first: ObservableFuture<A>, second: ObservableFuture<B>, third: ObservableFuture<C>,
+                            fourth: ObservableFuture<D>): ObservableFuture<Quad<A, B, C, D>> {
+            val merged = ConcreteMutableObservableFuture<Quad<A, B, C, D>>()
+            val listVersion = DelegateMergedMutableObservableFuture(listOf(first, second, third, fourth))
+            listVersion.onSuccess {
+                @Suppress("UNCHECKED_CAST")
+                merged.onResult(Quad(it[0] as A, it[1] as B, it[2] as C, it[3] as D))
             }
             listVersion.onFailure(merged::onResult)
             listVersion observe onCaller
@@ -769,4 +818,38 @@ private class OptionalWrapper<T>(private val delegate: ObservableFuture<T>) : Ob
             }
         }
     }
+}
+
+/*
+                                                 /@@@@@@&
+                                                 ,@@@@(
+                                             *@&,    @&   ..
+                                         ,@@@@@@@%,&@@@( @@@
+                  **                  #@@@@@@@@@@@@@&.*@@@@@.
+@@@@@@@@@@@@@@@@@@@,/&@@@@@@@@@@@@@@@@.@@*(@@@@@@@@@@@@@@@@%%@@@@@@@@@@@@@#
+  .@@%@,,     .,,#%&@@@*.&@@@@@@@@@&.&@@@@@@%.%@@@@@@@@.   /%#*.   *#@@@@@
+   @@@@@@@@@@@@@@@@@@% ,@@@@*.. %@@@@@@@@@@@@@&/@&, .%@@@%%&&@@@@@@@@#. /@.
+    .@@@@@@@@@@@@@@@@@@@.,@@@@@@@@@ %@@@@@@@@@@@@@/ #@@@@@@@@%,@@@@@@@@@@@@@*
+            .*(@@@@@@@@@@@ *@@@@@@@@@@@@@@@@@@@@@@ @@@@@@@@@%/&@@@@@@@@@@@@@,
+               @@@@@@@@@@@@. @@@& (@@@&&@@@@@@@@@(,@@@@@@@@@@@@@@@@@@@@@@@@(
+        *./@@/@@@@ *@@@@@@@% @@* @@@@@@@& /@@@@@@ @@@@@@@&.  %@*#@@  .@@@@
+     #&@@@@@@@@@@@@&. &@@@@@@@@,.@@@@@@& &@@@@@@@@@@@@@, /@@@@@@@@@@@@@@@#
+  ,&@@@@@@@@@@@@@@@@@@, &@@@@@@@#,@@@@@@.&@@@@@@@@@@@,.@@@@@@@@@@@@@@@@@@@
+ /@@@@@@@@@@@@@@@@@@@@@ /@@@@@@@@@@@@@&@@%*&@@@@@@@@,/@@@@@@@@@@@@@@@@@@@@@&
+(@@@@@@@@@,  ,@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*,@@,@@@@@@@@@,
+&@@@@@@@/(    , .@@@@@@@%   /@@@@@@@@@@@@@@@@@@@@%##@@@@@@@@@(      *@@@@@@@@,
+@@@@@@@%       (&@@@@@@@@.                          %@@@@@@&.        %@@@@@@@
+&@@@@@@@@%     .*@@@@@@@@                          .@@@@@@@@, .      @@@@@@@@,
+%@@@@@@@@& .@@ @@@@@@@@@@                            @@@@@@@@@&   @@@@@@@@@@/
+ *@@@@@@@@@@@@@@@@@@@@@*                             @@@@@@@@@@@@@@@@@@@@@@&
+  #@@@@@@@@@@@@@@@@@@&,                                &@@@@@@@@@@@@@@@@@@(
+    .@@@@@@@@@@@@@@@&                                   /&@@@@@@@@@@@@@@.
+        %@@&@@&/&,                                         ..,@@@%@@*
+ */
+data class Quad<out A, out B, out C, out D>(val first: A, val second: B, val third: C, val fourth: D) {
+
+    /**
+     * Returns string representation of the [Quad] including its [first], [second], [third] and [fourth] values.
+     */
+    override fun toString(): String = "($first, $second, $third, $fourth)"
 }
