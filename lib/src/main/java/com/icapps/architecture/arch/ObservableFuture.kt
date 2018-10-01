@@ -384,8 +384,8 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
 
     protected var successListener: ((T) -> Unit)? = null
     protected var failureListener: ((Throwable) -> Unit)? = null
-    protected var peek: ((T) -> Unit)? = null
-    protected var peekBoth: ((T?, Throwable?) -> Unit)? = null
+    protected val peekers = mutableListOf<((T) -> Unit)>()
+    protected val peekBoths = mutableListOf<((T?, Throwable?) -> Unit)>()
     private var lifecycle: Lifecycle? = null
 
     internal var isSimple = false
@@ -421,7 +421,8 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
             failure = null
             data = null
             dataSet = false
-            peek = null
+            peekers.clear()
+            peekBoths.clear()
         }
     }
 
@@ -480,8 +481,8 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
 
             dataSet = true
             data = value
-            peek?.invoke(value)
-            peekBoth?.invoke(value, null)
+            peekers.forEach { it(value) }
+            peekBoths.forEach { it(value, null) }
             checkDispatchState()
         }
     }
@@ -492,7 +493,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
                 return
 
             failure = error
-            peekBoth?.invoke(null, error)
+            peekBoths.forEach { it(null, error) }
             checkDispatchState()
         }
     }
@@ -508,7 +509,8 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
             doDispatch(it)
             successListener = null
             failureListener = null
-            peek = null
+            peekers.clear()
+            peekBoths.clear()
             observing = false
             return
         }
@@ -580,7 +582,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     override fun peek(listener: (T) -> Unit): ObservableFuture<T> {
         synchronized(lock) {
             if (!cancelled) {
-                peek = listener
+                peekers.add(listener)
                 if (dataSet) {
                     @Suppress("UNCHECKED_CAST")
                     listener(data as T)
@@ -593,7 +595,7 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     override fun peekBoth(listener: (T?, Throwable?) -> Unit): ObservableFuture<T> {
         synchronized(lock) {
             if (!cancelled) {
-                peekBoth = listener
+                peekBoths.add(listener)
                 if (dataSet) {
                     @Suppress("UNCHECKED_CAST")
                     listener(data as T, null)
@@ -676,6 +678,7 @@ private class DelegateMergedMutableObservableFuture(private val delegates: Colle
     }
 
     override fun cancel() {
+        super.cancel()
         delegates.forEach(ObservableFuture<*>::cancel)
     }
 
@@ -712,7 +715,8 @@ private class DelegateMergedMutableObservableFuture(private val delegates: Colle
         val numResults = results.count(MutableEntry::set)
         if (numResults == results.size) {
             val value = results.map { it.data }
-            peek?.invoke(value)
+            peekers.forEach { it.invoke(value) }
+            peekBoths.forEach { it.invoke(value, null) }
             doDispatch(value)
             successListener = null
             failureListener = null
@@ -741,8 +745,8 @@ private class OptionalWrapper<T>(private val delegate: ObservableFuture<T>) : Ob
     private var failureDispatched = false
     private val lock = Any()
     private var successListener: ((T?) -> Unit)? = null
-    private var peek: ((T?) -> Unit)? = null
-    private var peekBoth: ((T?, Throwable?) -> Unit)? = null
+    protected val peekers = mutableListOf<((T?) -> Unit)>()
+    protected val peekBoths = mutableListOf<((T?, Throwable?) -> Unit)>()
 
     override fun onSuccess(successListener: (T?) -> Unit): ObservableFuture<T?> {
         delegate.onSuccess(successListener)
@@ -770,6 +774,8 @@ private class OptionalWrapper<T>(private val delegate: ObservableFuture<T>) : Ob
         synchronized(lock) {
             cancelled = true
             successListener = null
+            peekBoths.clear()
+            peekers.clear()
         }
         delegate.cancel()
     }
@@ -795,7 +801,7 @@ private class OptionalWrapper<T>(private val delegate: ObservableFuture<T>) : Ob
     override fun peek(listener: (T?) -> Unit): ObservableFuture<T?> {
         synchronized(lock) {
             if (!cancelled)
-                peek = listener
+                peekers.add(listener)
         }
         delegate.peek(listener)
         return this
@@ -804,7 +810,7 @@ private class OptionalWrapper<T>(private val delegate: ObservableFuture<T>) : Ob
     override fun peekBoth(listener: (T?, Throwable?) -> Unit): ObservableFuture<T?> {
         synchronized(lock) {
             if (!cancelled)
-                peekBoth = listener
+                peekBoths.add(listener)
         }
         delegate.peekBoth(listener)
         return this
@@ -816,8 +822,8 @@ private class OptionalWrapper<T>(private val delegate: ObservableFuture<T>) : Ob
                 if (!cancelled && !failureDispatched) {
                     failureDispatched = true
                     successListener?.invoke(null)
-                    peek?.invoke(null)
-                    peekBoth?.invoke(null, null)
+                    peekers.forEach { peeker -> peeker(null) }
+                    peekBoths.forEach { peeker -> peeker(null, null) }
                 }
             }
         }

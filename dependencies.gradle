@@ -1,6 +1,6 @@
 def versions = [
         buildtools       : '3.2.0-alpha18',
-        kotlin           : '1.2.61',
+        kotlin           : '1.2.71',
         detekt           : '1.0.0.RC6-4',
         arch             : '1.1.1',
         androidSupport   : '27.1.0',
@@ -9,7 +9,7 @@ def versions = [
         espresso         : '3.0.1',
         retrofit         : '2.4.0',
         okhttp           : '3.11.0',
-        niddler          : '1.0.0-alpha10',
+        niddler          : '1.0.0-alpha12',
         versionsPlugin   : '0.17.0',
         leakcanary       : '1.5.4',
         dagger           : '2.16',

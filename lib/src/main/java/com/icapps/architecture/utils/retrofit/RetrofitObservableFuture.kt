@@ -110,12 +110,12 @@ class RetrofitObservableFuture<T, O>(private val call: Call<T>,
         //Timeout is ignored here, timeout should be set on HTTP client and cannot be changed per-request
         try {
             val response = handleResponse(call.execute())
-            peek?.let { it(response) }
-            peekBoth?.let { it(response, null) }
+            peekers.forEach { it(response) }
+            peekBoths.forEach { it(response, null) }
             return response
         } catch (e: Throwable) {
             try {
-                peekBoth?.let { it(null, e) }
+                peekBoths.forEach { it(null, e) }
             } catch (ignore: Throwable) {
             }
             throw e
