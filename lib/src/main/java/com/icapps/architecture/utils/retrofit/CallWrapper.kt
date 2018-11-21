@@ -15,6 +15,7 @@ package com.icapps.architecture.utils.retrofit
 import com.icapps.architecture.arch.ObservableFuture
 import okhttp3.Headers
 import okhttp3.Request
+import okhttp3.Response
 import retrofit2.Call
 import java.io.IOException
 import java.lang.reflect.Type
@@ -67,6 +68,40 @@ fun <T, O> Call<T>.wrapToFuture(type: Type, nullableType: Boolean, transform: (T
 }
 
 /**
+ * Helper that wraps a call to an [ObservableFuture] that includes the http response.
+ *
+ * @receiver Call to wrap
+ * @param type The type of the data we are wrapping. Should be equivalent to T
+ * @param nullableType Boolean indicating if T is nullable
+ * @param transform Transformation function which transforms the result
+ * @param headerInspector Optional transformation function which receives the result and the headers. See [RetrofitObservableFuture]
+ * @param errorTransformer Optional transformation function which receives the exception and can transform it before it is returned to the future
+ * @return A future which observes the call
+ */
+@Suppress("UNCHECKED_CAST")
+fun <T, O> Call<T>.wrapToFutureRaw(type: Type, nullableType: Boolean, transform: (T) -> O, headerInspector: ((Headers, T) -> T)? = null,
+                                   errorTransformer: ((ServiceException) -> Throwable)? = null): ObservableFuture<RawResponse<O>> {
+    return RawRetrofitObservableFuture(this, type, nullableType, headerInspector, transform, errorTransformer = errorTransformer)
+}
+
+/**
+ * Helper that wraps a call to an [ObservableFuture] that includes the http response.
+ *
+ * @receiver Call to wrap
+ * @param type The type of the data we are wrapping. Should be equivalent to T
+ * @param nullableType Boolean indicating if T is nullable
+ * @param headerInspector Optional transformation function which receives the result and the headers. See [RetrofitObservableFuture]
+ * @param errorTransformer Optional transformation function which receives the exception and can transform it before it is returned to the future
+ * @return A future which observes the call
+ */
+@Suppress("UNCHECKED_CAST")
+fun <T> Call<T>.wrapToFutureRaw(type: Type, nullableType: Boolean, headerInspector: ((Headers, T) -> T)? = null,
+                                errorTransformer: ((ServiceException) -> Throwable)? = null): ObservableFuture<RawResponse<T>> {
+    return RawRetrofitObservableFuture(this, type, nullableType, headerInspector, transform = null, errorTransformer = errorTransformer)
+}
+
+
+/**
  * Wrapper for an okhttp network error (in application-land)
  *
  * @author Nicola Verbeeck
@@ -104,3 +139,8 @@ open class ServiceException : IOException {
         }
 
 }
+
+/**
+ * Wrapper around the call response and includes the http response
+ */
+data class RawResponse<T>(val response: Response, val data: T)
