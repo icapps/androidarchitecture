@@ -610,6 +610,17 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
     @WorkerThread
     override fun execute(timeout: Long): T {
         assertNotMain()
+
+        @Suppress("UNCHECKED_CAST")
+        if (isSimple)
+            return data as T
+
+        @Suppress("UNCHECKED_CAST")
+        synchronized(lock) {
+            if (dataSet)
+                return data as T
+        }
+
         val latch = CountDownLatch(1)
         var ex: Throwable? = null
         var res: T? = null
