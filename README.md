@@ -7,7 +7,7 @@ most of the dependencies being to external libraries referenced in the code shou
 build.gradle file.
 
 
-### Setup
+## Setup
 ```
 // Include dependency to base library
 implementation "com.icapps.android:architecture:${archComponentsVersion}"
@@ -19,11 +19,11 @@ implementation "com.squareup.leakcanary:leakcanary-android:${leakCanaryVersion}"
 
 ```
 
-### Components
+## Components
 
-#### ObservableFuture
+### ObservableFuture
 
-##### Introduction
+#### Introduction
 
 An `ObservableFuture` represents an operation that will deliver a result / multiple results at some point in the future. They are designed so that they can easily be observed on Android, keeping in mind the threading challenges of the platform. The API is designed to be as fluent as possible, while still being pretty concise.
 
@@ -35,7 +35,7 @@ The result of ObservableFutures can be posted on different threads:
 
 A future has two main callbacks: `onSuccess` and `onFailure`. Each callback can only be attached once! Callbacks can and will be called more than once if multiple results are posted.
 
-##### Cancelling
+#### Cancelling
 
 You can cancel an `ObservableFuture` by calling `future.cancel()`. This will ensure that any callbacks will be cleared from memory and will not be called.
 
@@ -77,7 +77,7 @@ override fun onStop() {
 }
 ```
 
-##### Executing synchronously
+#### Executing synchronously
 
 `ObservableFuture` has a method called `execute()` that blocks the calling thread until the result of the future is ready to be delivered.
 *WARNING:* This method is generally dangerous as it has subtle pitfalls.
@@ -91,7 +91,7 @@ val future = coffeeMachine.makeCoffee() // returns an ObservableFuture
 val coffee = future.execute(10000) // Will block the current thread for 10 seconds, and return coffee (or throw the throwable from onFailure)
 ```
 
-##### Creating Futures
+#### Creating Futures
 
 There are a few implementations of the `(Mutable)ObservableFuture`-interface. The simplest one being `ConcreteMutableObservableFuture`.
 
@@ -136,7 +136,7 @@ fun getChannels(): ObservableFuture<List<Channel>> {
 }
 ```
 
-##### Peeking
+#### Peeking
 
 `ObservableFuture`s also have another result/failure callback, which we call peeking. You can add a callback which will also be called on success and/or failure. You can either listen only for success: `peek {}` or for both success and failure: `peekBoth { success, failure -> ... }`
 
@@ -166,7 +166,7 @@ class ChannelRepository(val channelService: ChannelService) {
 ```
 In this example, we keep a memory cache of channels. When there is no cache available and the channels call succeeds, the memCache is updated.
 
-##### Combining Futures
+#### Combining Futures
 
 `ObservableFuture`s can be combined in multiple ways:
 
