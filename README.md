@@ -200,3 +200,21 @@ sessionRepository.getSession() andThenAlso { session ->
     ...
 } observe lifecycle
 ```
+
+### ViewModels, Repositories, Dagger setup
+
+#### BaseRepository
+
+`BaseRepository` is an abstract base class for repositories. It mostly provides helper methods for transforming retrofit `Call`s into ObservableFutures (`makeCall()`).
+
+#### BaseViewModel
+
+`BaseViewModel` is an abstract base class for ViewModels. It extends the `ViewModel` class from Google's Architecture Components.
+
+The only thing that `BaseViewModel` does over a `ViewModel` is providing `saveInstanceState`, `restoreInstanceState` methods and a var which allows you to see whether viewModels are fresh instances or recreated. If you use our `ViewModelLifecycleController`, state saving and restoring for these viewmodels is handled for you.
+
+#### ViewModelLifecycleController and Dagger setup
+
+`ViewModelLifecycleController` is an injectable wrapper class around `ViewModelProviders.of`. It handles the creation of viewModels for activities/fragments and handles the saving and restoring of instance state into the viewmodels.
+
+For injecting ViewModels with dagger, the classes `ViewModelKey` and `ViewModelFactory` are included. For a clear dagger setup example, check out our project template: https://github.com/icapps/android-template-kotlin-viewmodel
