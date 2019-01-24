@@ -78,6 +78,14 @@ class ConcreteMutableObservableFutureTest {
         fail()
     }
 
+    @Test(expected = IOException::class)
+    fun testExceptionInFail() {
+        createDirectObservable() andThen { createDirectFailObservable("First") } onFailure {
+            throw IOException()
+        } observe onCaller
+        fail()
+    }
+
     private fun createThreadedObservable(): ObservableFuture<String> {
         val fut = ConcreteMutableObservableFuture<String>()
         Thread {

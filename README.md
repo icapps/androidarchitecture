@@ -35,6 +35,8 @@ The result of ObservableFutures can be posted on different threads:
 
 A future has two main callbacks: `onSuccess` and `onFailure`. Each callback can only be attached once! Callbacks can and will be called more than once if multiple results are posted.
 
+Exceptions thrown in `onSuccess` will be caught and propagated to `onFailure`. Warning: exceptions thrown in `onFailure` are not caught and will crash you application. Be sure to wrap dangerous method calls in `onFailure` in a try catch.
+
 #### Cancelling
 
 You can cancel an `ObservableFuture` by calling `future.cancel()`. This will ensure that any callbacks will be cleared from memory and will not be called.
