@@ -558,20 +558,12 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
         synchronized(lock) {
             failureListener?.let { listener ->
                 if (!dispatchToMain || (Looper.myLooper() == Looper.getMainLooper()))
-                    try {
-                        listener(failure)
-                    } catch (e: Throwable) {
-                        //Ignore failure in failure
-                    }
+                    listener(failure)
                 else
                     ObservableFuture.mainDispatcher.post {
                         synchronized(lock) {
                             if (!cancelled) {
-                                try {
-                                    listener(failure)
-                                } catch (e: Throwable) {
-                                    //Ignore failure in failure
-                                }
+                                listener(failure)
                             }
                         }
                     }
