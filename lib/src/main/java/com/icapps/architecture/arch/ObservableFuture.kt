@@ -347,6 +347,16 @@ interface ObservableFuture<T> {
     fun optional(): ObservableFuture<T?> {
         return OptionalWrapper(this)
     }
+
+    /**
+     * Creates a new observable future which will return the result or error of this future. Not that calling this on an already optional future
+     * is dangerous. The returned future has the same execute safety as this future. See {@link RetrofitObservableFuture}
+     *
+     * @return New future which returns the data or error in case of an exception
+     */
+    fun optionalWithError(): ObservableFuture<OptionalWithError<T>> {
+        return OptionalWithErrorWrapper(this)
+    }
 }
 
 /**
@@ -748,8 +758,8 @@ private class OptionalWrapper<T>(private val delegate: ObservableFuture<T>) : Ob
     private var failureDispatched = false
     private val lock = Any()
     private var successListener: ((T?) -> Unit)? = null
-    protected val peekers = mutableListOf<((T?) -> Unit)>()
-    protected val peekBoths = mutableListOf<((T?, Throwable?) -> Unit)>()
+    private val peekers = mutableListOf<((T?) -> Unit)>()
+    private val peekBoths = mutableListOf<((T?, Throwable?) -> Unit)>()
 
     override fun onSuccess(successListener: (T?) -> Unit): ObservableFuture<T?> {
         delegate.onSuccess(successListener)
@@ -833,32 +843,110 @@ private class OptionalWrapper<T>(private val delegate: ObservableFuture<T>) : Ob
     }
 }
 
-/*
-                                                 /@@@@@@&
-                                                 ,@@@@(
-                                             *@&,    @&   ..
-                                         ,@@@@@@@%,&@@@( @@@
-                  **                  #@@@@@@@@@@@@@&.*@@@@@.
-@@@@@@@@@@@@@@@@@@@,/&@@@@@@@@@@@@@@@@.@@*(@@@@@@@@@@@@@@@@%%@@@@@@@@@@@@@#
-  .@@%@,,     .,,#%&@@@*.&@@@@@@@@@&.&@@@@@@%.%@@@@@@@@.   /%#*.   *#@@@@@
-   @@@@@@@@@@@@@@@@@@% ,@@@@*.. %@@@@@@@@@@@@@&/@&, .%@@@%%&&@@@@@@@@#. /@.
-    .@@@@@@@@@@@@@@@@@@@.,@@@@@@@@@ %@@@@@@@@@@@@@/ #@@@@@@@@%,@@@@@@@@@@@@@*
-            .*(@@@@@@@@@@@ *@@@@@@@@@@@@@@@@@@@@@@ @@@@@@@@@%/&@@@@@@@@@@@@@,
-               @@@@@@@@@@@@. @@@& (@@@&&@@@@@@@@@(,@@@@@@@@@@@@@@@@@@@@@@@@(
-        *./@@/@@@@ *@@@@@@@% @@* @@@@@@@& /@@@@@@ @@@@@@@&.  %@*#@@  .@@@@
-     #&@@@@@@@@@@@@&. &@@@@@@@@,.@@@@@@& &@@@@@@@@@@@@@, /@@@@@@@@@@@@@@@#
-  ,&@@@@@@@@@@@@@@@@@@, &@@@@@@@#,@@@@@@.&@@@@@@@@@@@,.@@@@@@@@@@@@@@@@@@@
- /@@@@@@@@@@@@@@@@@@@@@ /@@@@@@@@@@@@@&@@%*&@@@@@@@@,/@@@@@@@@@@@@@@@@@@@@@&
-(@@@@@@@@@,  ,@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*,@@,@@@@@@@@@,
-&@@@@@@@/(    , .@@@@@@@%   /@@@@@@@@@@@@@@@@@@@@%##@@@@@@@@@(      *@@@@@@@@,
-@@@@@@@%       (&@@@@@@@@.                          %@@@@@@&.        %@@@@@@@
-&@@@@@@@@%     .*@@@@@@@@                          .@@@@@@@@, .      @@@@@@@@,
-%@@@@@@@@& .@@ @@@@@@@@@@                            @@@@@@@@@&   @@@@@@@@@@/
- *@@@@@@@@@@@@@@@@@@@@@*                             @@@@@@@@@@@@@@@@@@@@@@&
-  #@@@@@@@@@@@@@@@@@@&,                                &@@@@@@@@@@@@@@@@@@(
-    .@@@@@@@@@@@@@@@&                                   /&@@@@@@@@@@@@@@.
-        %@@&@@&/&,                                         ..,@@@%@@*
+/**
+ * Class which wraps an observable future that returns null when the original future signals or throws an error
  */
+private class OptionalWithErrorWrapper<T>(private val delegate: ObservableFuture<T>) : ObservableFuture<OptionalWithError<T>> {
+
+    private var cancelled = false
+    private var failureDispatched = false
+    private var successDispatched = false
+    private val lock = Any()
+    private var successListener: ((OptionalWithError<T>) -> Unit)? = null
+    private val peekers = mutableListOf<((OptionalWithError<T>) -> Unit)>()
+    private val peekBoths = mutableListOf<((OptionalWithError<T>, Throwable?) -> Unit)>()
+
+    override fun onSuccess(successListener: (OptionalWithError<T>) -> Unit): ObservableFuture<OptionalWithError<T>> {
+        synchronized(lock) {
+            if (!cancelled)
+                this.successListener = successListener
+        }
+        return this
+    }
+
+    override fun onFailure(failureListener: (Throwable) -> Unit): ObservableFuture<OptionalWithError<T>> {
+        //Ignore
+        return this
+    }
+
+    override fun execute(timeout: Long): OptionalWithError<T> {
+        return try {
+            OptionalWithError(data = delegate.execute(timeout), error = null)
+        } catch (e: Throwable) {
+            OptionalWithError(data = null, error = e)
+        }
+    }
+
+    override fun cancel() {
+        synchronized(lock) {
+            cancelled = true
+            successListener = null
+            peekBoths.clear()
+            peekers.clear()
+        }
+        delegate.cancel()
+    }
+
+    override fun observe(lifecycle: Lifecycle): ObservableFuture<OptionalWithError<T>> {
+        prepareListener()
+        delegate.observe(lifecycle)
+        return this
+    }
+
+    override fun observe(onCaller: OnCallerTag): ObservableFuture<OptionalWithError<T>> {
+        prepareListener()
+        delegate.observe(onCaller)
+        return this
+    }
+
+    override fun observe(onMain: OnMainThreadTag): ObservableFuture<OptionalWithError<T>> {
+        prepareListener()
+        delegate.observe(onMain)
+        return this
+    }
+
+    override fun peek(listener: (OptionalWithError<T>) -> Unit): ObservableFuture<OptionalWithError<T>> {
+        synchronized(lock) {
+            if (!cancelled)
+                peekers.add(listener)
+        }
+        return this
+    }
+
+    override fun peekBoth(listener: (OptionalWithError<T>?, Throwable?) -> Unit): ObservableFuture<OptionalWithError<T>> {
+        synchronized(lock) {
+            if (!cancelled)
+                peekBoths.add(listener)
+        }
+        return this
+    }
+
+    private fun prepareListener() {
+        delegate.onFailure {
+            synchronized(lock) {
+                if (!cancelled && !failureDispatched) {
+                    failureDispatched = true
+                    successListener?.invoke(OptionalWithError(data = null, error = it))
+                    peekers.forEach { peeker -> peeker(OptionalWithError(data = null, error = it)) }
+                    peekBoths.forEach { peeker -> peeker(OptionalWithError(data = null, error = it), null) }
+                }
+            }
+        }
+        delegate.onSuccess {
+            synchronized(lock) {
+                if (!cancelled && !successDispatched) {
+                    successDispatched = true
+                    successListener?.invoke(OptionalWithError(data = it, error = null))
+                    peekers.forEach { peeker -> peeker(OptionalWithError(data = it, error = null)) }
+                    peekBoths.forEach { peeker -> peeker(OptionalWithError(data = it, error = null), null) }
+                }
+            }
+        }
+    }
+}
+
+data class OptionalWithError<T>(val data: T?, val error: Throwable?)
+
 data class Quad<out A, out B, out C, out D>(val first: A, val second: B, val third: C, val fourth: D) {
 
     /**
