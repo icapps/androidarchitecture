@@ -107,6 +107,7 @@ return future
 ```
 
 A shortcut for creating a future of something that runs on a (background) thread is `onBackground { }`. It runs the supplied lambda on a new thread (you can pass an `Executor` if you want) and posts the result of the lambda to the `ConcreteMutableObservableFuture` that it returns.
+An alternative also exists for making sure something is not running on the main thread: `offMain { }`. It achieves the same thing as `onBackground { }`, but will not start a new thread if the current thread is not the main thread.
 
 Example 6. Creating a future with `onBackground`
 ```
@@ -220,3 +221,11 @@ The only thing that `BaseViewModel` does over a `ViewModel` is providing `saveIn
 `ViewModelLifecycleController` is an injectable wrapper class around `ViewModelProviders.of`. It handles the creation of viewModels for activities/fragments and handles the saving and restoring of instance state into the viewmodels.
 
 For injecting ViewModels with dagger, the classes `ViewModelKey` and `ViewModelFactory` are included. For a clear dagger setup example, check out our project template: https://github.com/icapps/android-template-kotlin-viewmodel
+
+### Other extensions and utils
+
+Other extensions and utilities can be found in the `com.icapps.architecture.utils.ext` package:
+
+- `UIExtensions.kt` contains many shortcuts for inflating views, converting dp/px units and loading resources
+- `LifecycleExt.kt` contains a shortcut for adding a stop observer to a `Lifecycle`
+- `ObservableExt.kt` contains utils for observing `ObservableField<T>`s, `ObservableInt`s, `ObservableBoolean`s and `ObservableList`s with `lifecycle`
