@@ -21,8 +21,11 @@ import android.databinding.ViewDataBinding
 import android.graphics.drawable.Drawable
 import android.support.annotation.ColorInt
 import android.support.v4.content.ContextCompat
+import android.util.TypedValue
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 
 /**
  * @author Nicola Verbeeck
@@ -55,7 +58,7 @@ inline fun <T : ViewDataBinding> Int.inflate(fragment: Fragment, into: ViewGroup
 
 @Suppress("NOTHING_TO_INLINE")
 inline fun <T : ViewDataBinding> Int.inflate(fragment: android.support.v4.app.Fragment, into: ViewGroup?, attach: Boolean = false): T {
-    return inflate(fragment.activity!!, into, attach)
+    return inflate(fragment.requireContext(), into, attach)
 }
 
 @Suppress("NOTHING_TO_INLINE")
@@ -93,3 +96,39 @@ inline fun Int.sp(context: Context): Float = context.resources.getDimension(this
  */
 @Suppress("NOTHING_TO_INLINE")
 inline fun Int.toDpi(context: Context): Float = this * context.resources.displayMetrics.density
+
+/**
+ * @receiver The integer to scale interpret as SP and convert into pixels
+ * @param context The context to extract the metrics from
+ * @return The integer scaled to the current SP density
+ */
+@Suppress("NOTHING_TO_INLINE")
+inline fun Int.spToPx(context: Context): Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, this.toFloat(), context.resources.displayMetrics).toInt()
+
+@Suppress("NOTHING_TO_INLINE")
+inline fun View.hideKeyboard(): Boolean {
+    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+    return imm.hideSoftInputFromWindow(windowToken, 0)
+}
+
+@Suppress("NOTHING_TO_INLINE")
+inline fun View.showKeyboard() {
+    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+    imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY)
+}
+
+@Suppress("NOTHING_TO_INLINE")
+inline fun Activity.hideKeyboard(): Boolean {
+    return findViewById<View>(android.R.id.content)?.hideKeyboard() ?: false
+}
+
+@Suppress("NOTHING_TO_INLINE")
+inline fun Activity.showKeyboard() {
+    findViewById<View>(android.R.id.content)?.showKeyboard()
+}
+
+@Suppress("NOTHING_TO_INLINE")
+inline fun Int.bool(context: Context) = context.resources.getBoolean(this)
+
+@Suppress("NOTHING_TO_INLINE")
+inline fun Int.stringArray(context: Context) = context.resources.getStringArray(this)
