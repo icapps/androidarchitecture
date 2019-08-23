@@ -641,6 +641,8 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
         else
             latch.await()
 
+        cancel() //Stop listening
+
         ex?.let { throw it }
 
         @Suppress("UNCHECKED_CAST")
