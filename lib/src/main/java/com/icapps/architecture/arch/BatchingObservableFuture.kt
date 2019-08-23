@@ -33,6 +33,7 @@ class BatchingObservableFuture<T>(private val peek: ((T) -> Unit)? = null) {
      */
     fun cancel() {
         synchronized(lock) {
+            listeners.forEach { it.cancel() }
             listeners.clear()
             delegate?.cancel()
             delegate = null
