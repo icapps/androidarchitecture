@@ -7,7 +7,7 @@ apply plugin: 'com.github.ben-manes.versions'
 apply plugin: 'maven-publish'
 apply plugin: 'org.jetbrains.dokka'
 
-def artifactVersionNormal = '0.3.7'
+def artifactVersionNormal = '0.3.8'
 def artifactVersionX = "$artifactVersionNormal-x"
 
 def artifactVersion = artifactVersionX
