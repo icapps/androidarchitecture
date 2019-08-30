@@ -11,8 +11,10 @@ import android.databinding.ObservableList
  * Provides a [callback] that gets called whenever the ObservableField's value changes.
  * The [callback] gets registered immediately, and gets deregistered when [lifecycle] hits ON_STOP
  * Upon registration, the [callback] gets called with the ObservableField's current value
+ *
+ * @return The underlying property change callback, can be used to manually unsubscribe
  */
-fun <T> ObservableField<T>.observe(lifecycle: Lifecycle, callback: (T?) -> Unit) {
+fun <T> ObservableField<T>.observe(lifecycle: Lifecycle, callback: (T?) -> Unit) : Observable.OnPropertyChangedCallback {
     val field = this
     val propertyChangedCallback = object : Observable.OnPropertyChangedCallback() {
         override fun onPropertyChanged(sender: Observable?, propertyId: Int) {
@@ -24,14 +26,17 @@ fun <T> ObservableField<T>.observe(lifecycle: Lifecycle, callback: (T?) -> Unit)
         field.removeOnPropertyChangedCallback(propertyChangedCallback)
     }
     callback(field.get())
+    return propertyChangedCallback
 }
 
 /**
  * Provides a [callback] that gets called whenever the ObservableInt's value changes.
  * The [callback] gets registered immediately, and gets deregistered when [lifecycle] hits ON_STOP
  * Upon registration, the [callback] gets called with the ObservableInt's current value
+ *
+ * @return The underlying property change callback, can be used to manually unsubscribe
  */
-fun ObservableInt.observe(lifecycle: Lifecycle, callback: (Int) -> Unit) {
+fun ObservableInt.observe(lifecycle: Lifecycle, callback: (Int) -> Unit) : Observable.OnPropertyChangedCallback {
     val field = this
     val propertyChangedCallback = object : Observable.OnPropertyChangedCallback() {
         override fun onPropertyChanged(sender: Observable?, propertyId: Int) {
@@ -43,14 +48,17 @@ fun ObservableInt.observe(lifecycle: Lifecycle, callback: (Int) -> Unit) {
         field.removeOnPropertyChangedCallback(propertyChangedCallback)
     }
     callback(field.get())
+    return propertyChangedCallback
 }
 
 /**
  * Provides a [callback] that gets called whenever the ObservableBoolean's value changes.
  * The [callback] gets registered immediately, and gets deregistered when [lifecycle] hits ON_STOP
  * Upon registration, the [callback] gets called with the ObservableBoolean's current value
+ *
+ * @return The underlying property change callback, can be used to manually unsubscribe
  */
-fun ObservableBoolean.observe(lifecycle: Lifecycle, callback: (Boolean) -> Unit) {
+fun ObservableBoolean.observe(lifecycle: Lifecycle, callback: (Boolean) -> Unit) : Observable.OnPropertyChangedCallback {
     val field = this
     val propertyChangedCallback = object : Observable.OnPropertyChangedCallback() {
         override fun onPropertyChanged(sender: Observable?, propertyId: Int) {
@@ -62,14 +70,17 @@ fun ObservableBoolean.observe(lifecycle: Lifecycle, callback: (Boolean) -> Unit)
         field.removeOnPropertyChangedCallback(propertyChangedCallback)
     }
     callback(field.get())
+    return propertyChangedCallback
 }
 
 /**
  * Provides a [callback] that gets called whenever the ObservableInt's value changes.
  * The [callback] gets registered immediately, and gets deregistered when [lifecycle] hits ON_STOP
  * Upon registration, the [callback] gets called with the ObservableField's current value
+ *
+ * @return The underlying list change callback, can be used to manually unsubscribe
  */
-fun <T> ObservableList<T>.observe(lifecycle: Lifecycle, callback: (List<T>) -> Unit) {
+fun <T> ObservableList<T>.observe(lifecycle: Lifecycle, callback: (List<T>) -> Unit) : ObservableList.OnListChangedCallback<ObservableList<T>> {
     val field = this
     val listChangedCallback = object : ObservableList.OnListChangedCallback<ObservableList<T>>() {
         override fun onChanged(sender: ObservableList<T>) {
@@ -97,4 +108,5 @@ fun <T> ObservableList<T>.observe(lifecycle: Lifecycle, callback: (List<T>) -> U
         field.removeOnListChangedCallback(listChangedCallback)
     }
     callback(field)
+    return listChangedCallback
 }
