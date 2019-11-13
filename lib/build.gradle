@@ -7,7 +7,7 @@ apply plugin: 'com.github.ben-manes.versions'
 apply plugin: 'maven-publish'
 apply plugin: 'org.jetbrains.dokka'
 
-def artifactVersionNormal = '0.3.8'
+def artifactVersionNormal = '0.3.9'
 def artifactVersionX = "$artifactVersionNormal-x"
 
 def artifactVersion = artifactVersionX
@@ -61,7 +61,9 @@ dependencies {
         testImplementation it.value
     }
 
-    testImplementation deps.testing.junit
+    deps.testing.each { name, dep ->
+        testImplementation dep
+    }
 }
 
 task sourceJar(type: Jar) {

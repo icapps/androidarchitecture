@@ -226,8 +226,9 @@ For injecting ViewModels with dagger, the classes `ViewModelKey` and `ViewModelF
 
 ### Other extensions and utils
 
-Other extensions and utilities can be found in the `com.icapps.architecture.utils.ext` package:
+Other extensions and utilities can be found in the `com.icapps.architecture.utils` package:
 
 - `UIExtensions.kt` contains many shortcuts for inflating views, converting dp/px units and loading resources
 - `LifecycleExt.kt` contains a shortcut for adding a stop observer to a `Lifecycle`
 - `ObservableExt.kt` contains utils for observing `ObservableField<T>`s, `ObservableInt`s, `ObservableBoolean`s and `ObservableList`s with `lifecycle`
+- `Cached` is a class that allows you to easily set up variables that clear themselves after a certain amount of time. Example usage: `var cachedValue: T? by Cached(CACHE_VALIDITY_MS)`
