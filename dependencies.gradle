@@ -14,6 +14,8 @@ def versions = [
         leakcanary       : '1.6.3',
         dagger           : '2.23.1',
         dokka            : '0.9.17',
+        powerMock        : '2.0.4',
+        mockito          : '3.1.0',
 ]
 
 ext.versions = versions
@@ -43,7 +45,10 @@ def libs = [
 ]
 
 def testing = [
-        junit: "junit:junit:${versions.junit}",
+        junit       : "junit:junit:${versions.junit}",
+        powerMock   : "org.powermock:powermock-module-junit4:${versions.powerMock}",
+        powerMockito: "org.powermock:powermock-api-mockito2:${versions.powerMock}",
+        mockito     : "org.mockito:mockito-core:${versions.mockito}",
 ]
 
 def niddler = [

@@ -55,7 +55,9 @@ dependencies {
 
     implementation deps.libs.archExtensions
 
-    testImplementation deps.testing.junit
+    deps.testing.each { name, dep ->
+        testImplementation dep
+    }
 }
 
 task sourceJar(type: Jar) {

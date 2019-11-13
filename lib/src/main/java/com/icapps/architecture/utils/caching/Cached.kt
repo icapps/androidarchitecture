@@ -1,5 +1,6 @@
 package com.icapps.architecture.utils.caching
 
+import android.os.SystemClock
 import kotlin.reflect.KProperty
 
 /**
@@ -19,7 +20,7 @@ class Cached<T>(private val cacheValidity: Long = DEFAULT_CACHE_DURATION) {
     operator fun getValue(thisRef: Any, property: KProperty<*>): T? {
         synchronized(this) {
             return timestamp?.let {
-                if (System.currentTimeMillis() - it <= cacheValidity) {
+                if (SystemClock.elapsedRealtime() - it <= cacheValidity) {
                     cache
                 } else {
                     cache = null // Reset cache so we don't keep unnecessary objects in memory
@@ -32,7 +33,7 @@ class Cached<T>(private val cacheValidity: Long = DEFAULT_CACHE_DURATION) {
     operator fun setValue(thisRef: Any, property: KProperty<*>, value: T?) {
         synchronized(this) {
             cache = value
-            timestamp = if (value == null) null else System.currentTimeMillis()
+            timestamp = if (value == null) null else SystemClock.elapsedRealtime()
         }
     }
 
