@@ -43,7 +43,7 @@ You can cancel an `ObservableFuture` by calling `future.cancel()`. This will ens
 
 Example 1. In this example the callbacks will be executed on the main thread and the future will cancel itself when the lifecycle 
 enters the `STOPPED` state
-```
+```kotlin
 val coffeeFuture = coffeeMachine.makeCoffee() onSuccess { coffee ->
     // Lambda function reiving the value in case the future completes successfully
     ...
@@ -54,7 +54,7 @@ val coffeeFuture = coffeeMachine.makeCoffee() onSuccess { coffee ->
 ```
 
 Example 2. In this example the callbacks will be executed on the thread that is posting the result (success or failure).
-```
+```kotlin
 val coffeeFuture = coffeeMachine.makeCoffee() onSuccess { coffee ->
     ...
 } onFailure {
@@ -67,7 +67,7 @@ override fun onStop() {
 ```
 
 Example 3. In this example the callbacks will be executed on the main thread.
-```
+```kotlin
 val coffeeFuture = coffeeMachine.makeCoffee() onSuccess { coffee ->
     ...
 } onFailure {
@@ -88,7 +88,7 @@ Except for `RetrofitObservableFuture` this method will use a latch to wait for t
 this method will block. Also, since this is being executed in the context of the future in the first place, special care should be taken with regards to reentrant locks (eg: synchronized(...), ...) as the thread calling [execute] will not be the same thread that is doing the actual executing.
 
 Example 4. Executing a future synchronously
-```
+```kotlin
 val future = coffeeMachine.makeCoffee() // returns an ObservableFuture
 val coffee = future.execute(10000) // Will block the current thread for 10 seconds, and return coffee (or throw the throwable from onFailure)
 ```
@@ -100,7 +100,7 @@ There are a few implementations of the `(Mutable)ObservableFuture`-interface. Th
 It allows you to pass results (either success or failure) to the future with the `onResult(T)` and `onFailure(throwable)` methods. The result will be posted on the correct thread for you (depending on which thread the future is observed)
 
 Example 5. Creating a `ConcreteMutableObservableFuture` (If you do something similar, make sure to unsubscribe from the timer at some point!)
-```
+```kotlin
 val timeFuture = ConcreteMutableObservableFuture<Long>()
 someTimer.addTickListener(intervalMs = 1000) { timeFuture.onResult(System.currentTimeMillis()) }
 return future
@@ -133,7 +133,7 @@ There are also some shortcuts for directly returning a future with a certain res
 Our library also contains extensions for creating futures of Retrofit calls: `Call.wrapToFuture()`.
 
 Example 7: Creating a future of a Retrofit `Call`
-```
+```kotlin
 fun getChannels(): ObservableFuture<List<Channel>> {
     return retrofitChannelService.getChannels().wrapToFuture()    
 }
@@ -147,7 +147,7 @@ Peeking is most easily explained with a practical example:
 
 Example 8. Using `peek`
 
-```
+```kotlin
 class ChannelRepository(val channelService: ChannelService) {
 
     private val memCache = mutableListOf<Channel>()
@@ -176,7 +176,7 @@ In this example, we keep a memory cache of channels. When there is no cache avai
 - `ObservableFuture.of(a, b, ...)`  n futures will be executed asynchronously. Once both futures have reached `onSuccess`, the result (a `Pair<firstT, secondT>`) will be posted to onSuccess.
 
 Example 9. `ObservableFuture.of`
-```
+```kotlin
 ObservableFuture.of(sessionRepository.getSession(), channelRepository.getChannels()) onSuccess { (session, channels) ->
     ...
 } observe lifecycle
@@ -185,7 +185,7 @@ ObservableFuture.of(sessionRepository.getSession(), channelRepository.getChannel
 - `future andThen { future2 }` : The 2 futures will be executed after one another. Once the first future has reached `onSuccess`, the next `ObservableFuture` will be created with the result from the previous. The result of the second future will be posted to `onSuccess`.
 
 Example 10. usage of `andThen`
-```
+```kotlin
 sessionRepository.getSession() andThen { session ->
     session -> channelRepository.getChannels(session.profileId)
 } onSuccess { channels ->
@@ -196,12 +196,26 @@ sessionRepository.getSession() andThen { session ->
 - `future andThenAlso { future2 }` : The 2 futures that will be executed after one another. Once the first future has reached `onSuccess`, the next `ObservableFuture` will be created with the result from the previous. The result of both futures (a `Pair<firstT, secondT>`) will be posted to `onSuccess`.
 
 Example 11. usage of `andThenAlso`
-```
+```kotlin
 sessionRepository.getSession() andThenAlso { session ->
     session -> channelRepository.getChannels(session.profileId)
 } onSuccess { (session, channels) ->
     ...
 } observe lifecycle
+```
+
+#### AsyncMemoizer
+As an alternative to `BatchingObservableFuture`, you can use `AsyncMemoizer`. This class is designed to execute exactly once and provides access to the value when the computation has finished.
+
+This class can be used to easily create a network cache that ensures multiple calls are not running at the same time.
+
+Example 12. usage of `AsyncMemoizer`
+```kotlin
+//Future will get notified with results from the future created by runOnce
+val future = memoizer.runOnce { /* code that creates the future, will execute EXACTLY ONCE */ }
+
+//Easily access the future of the memoizer, will get notified with the results of the future created by runOnce
+val otherFuture = memoizer.future
 ```
 
 ### ViewModels, Repositories, Dagger setup
