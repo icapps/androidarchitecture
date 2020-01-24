@@ -6,7 +6,7 @@ Library containing architecture components for android apps. The components in t
 most of the dependencies being to external libraries referenced in the code should be added manually to the consuming project's 
 build.gradle file.
 
-**Note**: Versions ending their code in -x target the androidx versions of the support library
+**Note**: Prior to version 0.5.0, add '-x' to the version name for a version of the library that uses androidx dependencies. Starting with version 0.5.0, androidx dependencies are used by default.
 
 
 ## Setup
