@@ -7,10 +7,7 @@ apply plugin: 'com.github.ben-manes.versions'
 apply plugin: 'maven-publish'
 apply plugin: 'org.jetbrains.dokka'
 
-def artifactVersionNormal = '0.4.0'
-def artifactVersionX = "$artifactVersionNormal-x"
-
-def artifactVersion = artifactVersionX
+def artifactVersion = '0.5.0'
 def artifactGroup = 'com.icapps.android'
 def artifactName = 'architecture'
 
@@ -49,14 +46,6 @@ dependencies {
     compileOnly deps.leakCanary.leakCanary
 
     deps.libs.each {
-        compileOnly it.value
-        testImplementation it.value
-    }
-    deps.support.each {
-        compileOnly it.value
-        testImplementation it.value
-    }
-    deps.databinding.each {
         compileOnly it.value
         testImplementation it.value
     }

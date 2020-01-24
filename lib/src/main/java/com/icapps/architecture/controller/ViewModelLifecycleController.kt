@@ -16,7 +16,6 @@ import android.os.Bundle
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProviders
 import com.icapps.architecture.arch.BaseViewModel
 import java.util.IdentityHashMap
 import javax.inject.Inject
@@ -40,7 +39,7 @@ class ViewModelLifecycleController @Inject constructor(val factory: ViewModelPro
      * @return Instance of the [BaseViewModel] tied to the activity
      */
     inline fun <reified T : BaseViewModel> getOrCreateViewModel(activity: FragmentActivity, savedInstanceState: Bundle? = null): T {
-        return registerViewModel(ViewModelProviders.of(activity, factory)[T::class.java], T::class, savedInstanceState)
+        return registerViewModel(ViewModelProvider(activity, factory)[T::class.java], T::class, savedInstanceState)
     }
 
     /**
@@ -51,7 +50,7 @@ class ViewModelLifecycleController @Inject constructor(val factory: ViewModelPro
      * @return Instance of the [BaseViewModel] tied to the fragment
      */
     inline fun <reified T : BaseViewModel> getOrCreateViewModel(fragment: Fragment, savedInstanceState: Bundle? = null): T {
-        return registerViewModel(ViewModelProviders.of(fragment, factory)[T::class.java], T::class, savedInstanceState)
+        return registerViewModel(ViewModelProvider(fragment, factory)[T::class.java], T::class, savedInstanceState)
     }
 
     /**

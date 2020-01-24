@@ -26,11 +26,10 @@ class CachedTest {
         assertNull(cache)
 
         cache = "abc"
-        assertEquals("abc", cache)
 
-        assertEquals("abc", cache)
-
-        assertNull(cache)
+        assertEquals("abc", cache) // After 0 ms
+        assertEquals("abc", cache) // After 25 ms
+        assertNull(cache)                   // After 75 ms
     }
 
 }
