@@ -14,6 +14,10 @@ def versions = [
         leakcanary       : '1.6.3',
         dagger           : '2.23.1',
         dokka            : '0.9.17',
+        appCompatX       : '1.0.2',
+        annotX           : '1.1.0-alpha01',
+        archX            : '2.0.0-alpha1',
+        databindingX     : '3.2.0-alpha11',
         powerMock        : '2.0.4',
         mockito          : '3.1.0',
 ]
@@ -32,16 +36,16 @@ def kotlin = [
 ]
 
 def support = [
-        supportV4  : "com.android.support:support-fragment:${versions.androidSupport}",
-        annotations: "com.android.support:support-annotations:${versions.androidSupport}",
+        appCompatX     : "androidx.appcompat:appcompat:${versions.appCompatX}",
+        annotX         : "androidx.annotation:annotation:${versions.annotX}",
+        archExtensionsX: "androidx.lifecycle:lifecycle-extensions:${versions.archX}",
 ]
 
 def libs = [
-        archExtensions: "android.arch.lifecycle:extensions:${versions.arch}",
-        retrofit      : "com.squareup.retrofit2:retrofit:${versions.retrofit}",
-        okhttp        : "com.squareup.okhttp3:okhttp:${versions.okhttp}",
-        databinding   : "com.android.databinding:library:${versions.buildtools}",
-        dagger        : "com.google.dagger:dagger:${versions.dagger}",
+        retrofit   : "com.squareup.retrofit2:retrofit:${versions.retrofit}",
+        okhttp     : "com.squareup.okhttp3:okhttp:${versions.okhttp}",
+        databinding: "com.android.databinding:library:${versions.buildtools}",
+        dagger     : "com.google.dagger:dagger:${versions.dagger}",
 ]
 
 def testing = [
@@ -59,6 +63,10 @@ def leakCanary = [
         leakCanary: "com.squareup.leakcanary:leakcanary-android:${versions.leakcanary}",
 ]
 
+def databinding = [
+        databinding: "androidx.databinding:library:${versions.databindingX}",
+]
+
 ext.deps = [
         "gradlePlugins": gradlePlugins,
         "kotlin"       : kotlin,
@@ -66,5 +74,6 @@ ext.deps = [
         "libs"         : libs,
         "niddler"      : niddler,
         "leakCanary"   : leakCanary,
-        "testing"      : testing
+        "databinding"  : databinding,
+        "testing"      : testing,
 ]

@@ -1,8 +1,8 @@
 package com.icapps.architecture.utils.ext
 
-import android.arch.lifecycle.Lifecycle
-import android.arch.lifecycle.LifecycleObserver
-import android.arch.lifecycle.OnLifecycleEvent
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleObserver
+import androidx.lifecycle.OnLifecycleEvent
 
 /**
  * Adds an observer to the specified Lifecycle, which will trigger the provided [callback] when the lifecycle hits ON_STOP.

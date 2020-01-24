@@ -6,6 +6,8 @@ Library containing architecture components for android apps. The components in t
 most of the dependencies being to external libraries referenced in the code should be added manually to the consuming project's 
 build.gradle file.
 
+**Note**: Versions ending their code in -x target the androidx versions of the support library
+
 
 ## Setup
 ```

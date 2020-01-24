@@ -1,11 +1,11 @@
 package com.icapps.architecture.utils.ext
 
-import android.arch.lifecycle.Lifecycle
-import android.databinding.Observable
-import android.databinding.ObservableBoolean
-import android.databinding.ObservableField
-import android.databinding.ObservableInt
-import android.databinding.ObservableList
+import androidx.databinding.Observable
+import androidx.databinding.ObservableBoolean
+import androidx.databinding.ObservableField
+import androidx.databinding.ObservableInt
+import androidx.databinding.ObservableList
+import androidx.lifecycle.Lifecycle
 
 /**
  * Provides a [callback] that gets called whenever the ObservableField's value changes.

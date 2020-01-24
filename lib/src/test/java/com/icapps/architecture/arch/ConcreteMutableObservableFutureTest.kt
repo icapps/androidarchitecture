@@ -1,6 +1,6 @@
 package com.icapps.architecture.arch
 
-import junit.framework.Assert.assertEquals
+import org.junit.Assert.assertEquals
 import org.junit.Assert.fail
 import org.junit.Test
 import java.io.IOException
