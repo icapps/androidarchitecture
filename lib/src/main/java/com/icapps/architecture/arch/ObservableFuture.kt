@@ -95,6 +95,13 @@ interface ObservableFuture<T> {
             if (first is ConcreteMutableObservableFuture<T> && first.isSimple) {
                 @Suppress("UNCHECKED_CAST")
                 val firstResult = first.data as T
+
+                if (second is ConcreteMutableObservableFuture<V> && second.isSimple) {
+                    @Suppress("UNCHECKED_CAST")
+                    val secondResult = second.data as V
+                    return withData(Pair(firstResult, secondResult))
+                }
+
                 return try {
                     second onSuccess {
                         merged.onResult(Pair(firstResult, it))
