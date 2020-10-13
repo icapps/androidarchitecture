@@ -544,26 +544,30 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
      * Dispatch the results to the listener, delegating to the correct thread if required
      */
     protected fun doDispatch(data: T) {
+        var directDispatchListener : ((T) -> Unit)? = null
         synchronized(lock) {
             successListener?.let { listener ->
                 if (!dispatchToMain || (Looper.myLooper() === Looper.getMainLooper())) {
-                    try {
-                        listener(data)
-                    } catch (e: Throwable) {
-                        onResult(e)
-                    }
-                } else
+                    directDispatchListener = listener
+                } else {
                     ObservableFuture.mainDispatcher.post {
-                        synchronized(lock) {
-                            if (!cancelled) {
-                                try {
-                                    listener(data)
-                                } catch (e: Throwable) {
-                                    onResult(e)
-                                }
-                            }
+                        val currentListener = synchronized(lock) {
+                            if (cancelled) null else listener
+                        }
+                        try {
+                            currentListener?.invoke(data)
+                        } catch (e: Throwable) {
+                            onResult(e)
                         }
                     }
+                }
+            }
+        }
+        directDispatchListener?.let {
+            try{
+                it(data)
+            }catch(e: Throwable) {
+                onResult(e)
             }
         }
     }
@@ -572,20 +576,21 @@ open class ConcreteMutableObservableFuture<T> : MutableObservableFuture<T>, Life
      * Dispatch the results to the listener, delegating to the correct thread if required
      */
     protected fun doDispatch(failure: Throwable) {
+        var directDispatchListener : ((Throwable) -> Unit)? = null
         synchronized(lock) {
             failureListener?.let { listener ->
                 if (!dispatchToMain || (Looper.myLooper() == Looper.getMainLooper()))
-                    listener(failure)
+                    directDispatchListener = listener
                 else
                     ObservableFuture.mainDispatcher.post {
-                        synchronized(lock) {
-                            if (!cancelled) {
-                                listener(failure)
-                            }
+                        val currentListener = synchronized(lock) {
+                            if (cancelled) null else listener
                         }
+                        currentListener?.invoke(failure)
                     }
             }
         }
+        directDispatchListener?.invoke(failure)
     }
 
     override fun peek(listener: (T) -> Unit): ObservableFuture<T> {
