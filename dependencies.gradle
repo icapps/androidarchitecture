@@ -40,7 +40,7 @@ def libs = [
         lifecycleRuntime  : "androidx.lifecycle:lifecycle-runtime:${versions.lifecycle}",
         retrofit          : "com.squareup.retrofit2:retrofit:${versions.retrofit}",
         okhttp            : "com.squareup.okhttp3:okhttp:${versions.okhttp}",
-        databinding       : "com.android.databinding:library:${versions.buildtools}",
+        databinding       : "androidx.databinding:library:3.2.0-alpha11",
         dagger            : "com.google.dagger:dagger:${versions.dagger}",
 ]
 

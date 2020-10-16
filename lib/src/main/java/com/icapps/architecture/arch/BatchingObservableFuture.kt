@@ -50,35 +50,37 @@ class BatchingObservableFuture<T>(private val peek: ((T) -> Unit)? = null) {
     private fun notifySuccess(data: T) {
         peek?.invoke(data)
         synchronized(lock) {
-            listeners.forEach {
-                try {
-                    it.onResult(data)
-                } catch (e: Throwable) {
-                    try {
-                        it.onResult(e)
-                    } catch (e: Throwable) {
-                        //Swallow to prevent affecting other listeners
-                    }
-                }
-            }
+            val copy = ArrayList(listeners)
             listeners.clear()
             inFlight = false
             delegate = null
+            copy
+        }.forEach {
+            try {
+                it.onResult(data)
+            } catch (e: Throwable) {
+                try {
+                    it.onResult(e)
+                } catch (e: Throwable) {
+                    //Swallow to prevent affecting other listeners
+                }
+            }
         }
     }
 
     private fun notifyFailure(error: Throwable) {
         synchronized(lock) {
-            listeners.forEach {
-                try {
-                    it.onResult(error)
-                } catch (e: Throwable) {
-                    //Swallow to prevent affecting other listeners
-                }
-            }
+            val copy = ArrayList(listeners)
             listeners.clear()
             inFlight = false
             delegate = null
+            copy
+        }.forEach {
+            try {
+                it.onResult(error)
+            } catch (e: Throwable) {
+                //Swallow to prevent affecting other listeners
+            }
         }
     }
 
