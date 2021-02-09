@@ -1,3 +1,6 @@
+
+signing.properties
+
 *.iml
 .gradle
 /local.properties
